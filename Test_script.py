@@ -1,33 +1,58 @@
-import ccxt # Importiert die neue ccxt-Bibliothek
+import requests
+import os # Wird benötigt, um auf Secrets zuzugreifen
 import pandas as pd
 import talib
 
-def analysiere_bitcoin_binance():
+def analysiere_bitcoin_alphavantage():
     """
-    Holt historische Bitcoin-Daten direkt von der Binance API, 
-    berechnet den RSI und gibt das Ergebnis aus.
+    Holt historische Bitcoin-Daten von Alpha Vantage, berechnet den RSI 
+    und gibt das Ergebnis aus.
     """
-    print("Starte Datenabruf von Binance...")
+    print("Starte Datenabruf von Alpha Vantage...")
+
+    # Der API-Schlüssel wird sicher aus den GitHub Secrets geladen
+    api_key = os.getenv('ALPHA_VANTAGE_API_KEY')
+
+    if not api_key:
+        print("Fehler: API-Schlüssel nicht gefunden!")
+        return
+
+    # URL und Parameter für Alpha Vantage
+    url = 'https://www.alphavantage.co/query'
+    params = {
+        'function': 'DIGITAL_CURRENCY_DAILY',
+        'symbol': 'BTC',
+        'market': 'USD',
+        'apikey': api_key
+    }
 
     try:
-        # Initialisiert den Binance-Connector
-        binance = ccxt.binance()
-
-        # Holte die letzten 40 täglichen Kerzen (OHLCV) für BTC/USDT
-        # Wir holen etwas mehr als 30, um sicherzustellen, dass der RSI-Wert korrekt berechnet wird
-        ohlcv = binance.fetch_ohlcv('BTC/USDT', '1d', limit=40)
+        response = requests.get(url, params=params)
+        response.raise_for_status()
+        daten = response.json()
+        
+        # Fehlerprüfung für die API-Antwort
+        if 'Error Message' in daten:
+            print(f"Fehler von Alpha Vantage API: {daten['Error Message']}")
+            return
 
         print("Historische Daten erfolgreich abgerufen!")
 
         # --- Datenaufbereitung mit Pandas ---
-        # Die Daten von ccxt sind bereits gut strukturiert
-        df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+        time_series = daten['Time Series (Digital Currency Daily)']
+        df = pd.DataFrame.from_dict(time_series, orient='index')
+        df = df.astype(float)
+        df.index = pd.to_datetime(df.index)
+        
+        # Spalten umbenennen und nur den Schlusskurs behalten
+        df = df.rename(columns={'4a. close (USD)': 'price'})
+        df = df.sort_index(ascending=True) # Sortieren, älteste zuerst
 
         # --- Technische Analyse mit TA-Lib ---
-        df['rsi'] = talib.RSI(df['close'], timeperiod=14)
+        df['rsi'] = talib.RSI(df['price'], timeperiod=14)
 
         # --- Ergebnisse ausgeben ---
-        aktueller_preis = df['close'].iloc[-1]
+        aktueller_preis = df['price'].iloc[-1]
         aktueller_rsi = df['rsi'].iloc[-1]
 
         print("\n--- ANALYSE ERGEBNIS ---")
@@ -45,6 +70,5 @@ def analysiere_bitcoin_binance():
     except Exception as e:
         print(f"Ein Fehler ist aufgetreten: {e}")
 
-
 if __name__ == "__main__":
-    analysiere_bitcoin_binance()
+    analysiere_bitcoin_alphavantage()
