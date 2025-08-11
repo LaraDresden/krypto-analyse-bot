@@ -1,5 +1,5 @@
 import requests
-import os # Wird benötigt, um auf Secrets zuzugreifen
+import os
 import pandas as pd
 import talib
 
@@ -10,14 +10,11 @@ def analysiere_bitcoin_alphavantage():
     """
     print("Starte Datenabruf von Alpha Vantage...")
 
-    # Der API-Schlüssel wird sicher aus den GitHub Secrets geladen
     api_key = os.getenv('ALPHA_VANTAGE_API_KEY')
-
     if not api_key:
-        print("Fehler: API-Schlüssel nicht gefunden!")
+        print("Fehler: API-Schlüssel nicht in GitHub Secrets gefunden!")
         return
 
-    # URL und Parameter für Alpha Vantage
     url = 'https://www.alphavantage.co/query'
     params = {
         'function': 'DIGITAL_CURRENCY_DAILY',
@@ -30,28 +27,22 @@ def analysiere_bitcoin_alphavantage():
         response = requests.get(url, params=params)
         response.raise_for_status()
         daten = response.json()
-        
-        # Fehlerprüfung für die API-Antwort
+
         if 'Error Message' in daten:
             print(f"Fehler von Alpha Vantage API: {daten['Error Message']}")
             return
 
         print("Historische Daten erfolgreich abgerufen!")
 
-        # --- Datenaufbereitung mit Pandas ---
         time_series = daten['Time Series (Digital Currency Daily)']
         df = pd.DataFrame.from_dict(time_series, orient='index')
         df = df.astype(float)
         df.index = pd.to_datetime(df.index)
-        
-        # Spalten umbenennen und nur den Schlusskurs behalten
         df = df.rename(columns={'4a. close (USD)': 'price'})
-        df = df.sort_index(ascending=True) # Sortieren, älteste zuerst
+        df = df.sort_index(ascending=True)
 
-        # --- Technische Analyse mit TA-Lib ---
         df['rsi'] = talib.RSI(df['price'], timeperiod=14)
 
-        # --- Ergebnisse ausgeben ---
         aktueller_preis = df['price'].iloc[-1]
         aktueller_rsi = df['rsi'].iloc[-1]
 
