@@ -35,3 +35,11 @@ jobs:
     # Schritt 4: Das Analyse-Skript ausführen
     - name: Run Python script
       run: python Test_script.py
+
+# ... (der obere Teil der Datei bleibt gleich) ...
+
+    # Schritt 4: Das Analyse-Skript ausführen
+    - name: Run Python script
+      env:
+        ALPHA_VANTAGE_API_KEY: ${{ secrets.ALPHA_VANTAGE_API_KEY }}
+      run: python Test_script.py
