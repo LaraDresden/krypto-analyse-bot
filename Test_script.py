@@ -3,67 +3,58 @@ import os
 import pandas as pd
 import talib
 
-def analysiere_bitcoin_alphavantage():
-    """
-    Holt historische Bitcoin-Daten von Alpha Vantage, berechnet den RSI 
-    und gibt das Ergebnis aus.
-    """
-    print("Starte Datenabruf von Alpha Vantage...")
+def sende_telegram_nachricht(nachricht):
+    """Sendet eine formatierte Nachricht an Ihren Telegram-Bot."""
+    bot_token = os.getenv('TELEGRAM_BOT_TOKEN')
+    chat_id = os.getenv('TELEGRAM_CHAT_ID')
 
-    api_key = os.getenv('ALPHA_VANTAGE_API_KEY')
-    if not api_key:
-        print("Fehler: API-Schlüssel nicht in GitHub Secrets gefunden!")
+    if not bot_token or not chat_id:
+        print("Fehler: Telegram-Zugangsdaten nicht in GitHub Secrets gefunden!")
         return
 
-    url = 'https://www.alphavantage.co/query'
+    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
     params = {
-        'function': 'DIGITAL_CURRENCY_DAILY',
-        'symbol': 'BTC',
-        'market': 'USD',
-        'apikey': api_key
+        'chat_id': chat_id,
+        'text': nachricht,
+        'parse_mode': 'Markdown'
     }
-
     try:
-        response = requests.get(url, params=params)
+        response = requests.post(url, params=params)
         response.raise_for_status()
-        daten = response.json()
-
-        if 'Time Series (Digital Currency Daily)' not in daten:
-            print("Fehler: 'Time Series (Digital Currency Daily)' nicht in der API-Antwort gefunden.")
-            print("Mögliche Ursache: Das tägliche API-Limit von Alpha Vantage wurde erreicht.")
-            return
-
-        print("Historische Daten erfolgreich abgerufen!")
-
-        time_series = daten['Time Series (Digital Currency Daily)']
-        df = pd.DataFrame.from_dict(time_series, orient='index')
-        df = df.astype(float)
-        df.index = pd.to_datetime(df.index)
-
-        # --- FINALE KORREKTUR ---
-        # Wir verwenden den korrekten Spaltennamen '4. close'
-        df = df.rename(columns={'4. close': 'price'})
-        df = df.sort_index(ascending=True)
-
-        df['rsi'] = talib.RSI(df['price'], timeperiod=14)
-
-        aktueller_preis = df['price'].iloc[-1]
-        aktueller_rsi = df['rsi'].iloc[-1]
-
-        print("\n--- ANALYSE ERGEBNIS ---")
-        print(f"Aktueller Bitcoin Preis: ${aktueller_preis:,.2f}")
-        print(f"Aktueller 14-Tage-RSI: {aktueller_rsi:.2f}")
-
-        if aktueller_rsi > 70:
-            print("Markt-Status: 🟢 Überkauft (Overbought) - Vorsicht, mögliche Korrektur.")
-        elif aktueller_rsi < 30:
-            print("Markt-Status: 🔴 Überverkauft (Oversold) - Mögliche Kaufgelegenheit.")
-        else:
-            print("Markt-Status: 🟡 Neutral.")
-        print("------------------------\n")
-
+        print("Telegram-Benachrichtigung erfolgreich gesendet!")
     except Exception as e:
-        print(f"Ein Fehler ist aufgetreten: {e}")
+        print(f"Fehler beim Senden der Telegram-Nachricht: {e}")
+
+def analysiere_bitcoin_alphavantage():
+    # ... (der gesamte Code von hier bis zum print-Block bleibt genau gleich) ...
+    print("Starte Datenabruf von Alpha Vantage...")
+    # ...
+    # --- Ergebnisse ausgeben ---
+    aktueller_preis = df['price'].iloc[-1]
+    aktueller_rsi = df['rsi'].iloc[-1]
+
+    # Wir erstellen die Terminal-Ausgabe wie bisher
+    print("\n--- ANALYSE ERGEBNIS ---")
+    print(f"Aktueller Bitcoin Preis: ${aktueller_preis:,.2f}")
+    print(f"Aktueller 14-Tage-RSI: {aktueller_rsi:.2f}")
+
+    if aktueller_rsi > 70:
+        status_text = "🟢 Überkauft (Overbought) - Vorsicht, mögliche Korrektur."
+    elif aktueller_rsi < 30:
+        status_text = "🔴 Überverkauft (Oversold) - Mögliche Kaufgelegenheit."
+    else:
+        status_text = "🟡 Neutral."
+    print(f"Markt-Status: {status_text}")
+    print("------------------------\n")
+
+    # --- Nachricht für Telegram formatieren und senden ---
+    telegram_nachricht = (
+        f"*BTC Analyse-Update* 🤖\n\n"
+        f"Preis: *${aktueller_preis:,.2f}*\n"
+        f"14-Tage-RSI: *{aktueller_rsi:.2f}*\n\n"
+        f"*{status_text}*"
+    )
+    sende_telegram_nachricht(telegram_nachricht)
 
 if __name__ == "__main__":
     analysiere_bitcoin_alphavantage()
