@@ -120,12 +120,12 @@ def run_full_analysis():
     for coin_name, coin_data in COINS_TO_ANALYZE.items():
         analyse_ergebnis = analysiere_coin(coin_name, coin_data['symbol'])
         ergebnis_daten.append(analyse_ergebnis)
-        schreibe_in_google_sheet(analyse_ergebnis)
 
     header = "*Tägliches Krypto-Analyse Update* 🤖\n\n"
     nachrichten_teile: List[str] = []
 
     for daten in ergebnis_daten:
+        schreibe_in_google_sheet(daten) # Schreibe JEDES Ergebnis in die Tabelle
         if daten.get('error'):
             error_text = daten['error']
             if len(error_text) > 100: 
