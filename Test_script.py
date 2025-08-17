@@ -104,36 +104,31 @@ def run_full_analysis():
     try:
         bitvavo = ccxt.bitvavo({'apiKey': api_key, 'secret': secret})
         
-        # KORRIGIERT: Robustere Behandlung der Balance-Daten
+        # Standard ccxt fetch_balance() gibt immer ein Dictionary zurück:
+        # {'BTC': {'free': 0.001, 'used': 0, 'total': 0.001}, 'ETH': {...}, ...}
         balance_data = bitvavo.fetch_balance()
-        print(f"Balance-Datentyp: {type(balance_data)}")
-        print(f"Balance-Daten (erste 3 Einträge): {str(balance_data)[:500]}...")
+        print(f"Balance-Daten erfolgreich abgerufen: {len(balance_data)} Assets gefunden")
         
+        # Vereinfachte und robuste Parsing-Logik für Standard ccxt-Format
         wallet_bestaende = {}
+        for symbol, balance_info in balance_data.items():
+            if isinstance(balance_info, dict) and balance_info.get('free', 0) > 0:
+                wallet_bestaende[symbol] = balance_info['free']
         
-        # Prüfe verschiedene mögliche Strukturen der Balance-Daten
-        if isinstance(balance_data, dict):
-            # Standard ccxt Format: {'BTC': {'free': 0.001, 'used': 0, 'total': 0.001}, ...}
-            wallet_bestaende = {symbol: data.get('free', 0) for symbol, data in balance_data.items() 
-                              if isinstance(data, dict) and data.get('free', 0) > 0}
-        elif isinstance(balance_data, list):
-            # Falls es eine Liste ist, durchsuche nach der korrekten Struktur
-            for item in balance_data:
-                if isinstance(item, dict) and 'symbol' in item and 'free' in item:
-                    if item['free'] > 0:
-                        wallet_bestaende[item['symbol']] = item['free']
-        else:
-            print(f"Unerwartete Balance-Datenstruktur: {type(balance_data)}")
-            wallet_bestaende = {}
+        print(f"Erfolgreich {len(wallet_bestaende)} Coins mit Bestand gefunden: {list(wallet_bestaende.keys())}")
         
-        print(f"Erfolgreich {len(wallet_bestaende)} Coins mit Bestand auf Bitvavo gefunden: {list(wallet_bestaende.keys())}")
-        
+    except ccxt.AuthenticationError as e:
+        print(f"Authentifizierungsfehler bei Bitvavo: {e}")
+        sende_telegram_nachricht(f"🔐 <b>Bitvavo Authentifizierungsfehler</b>\n\nBitte API-Schlüssel überprüfen:\n<code>{escape_html(str(e))}</code>")
+        return
+    except ccxt.NetworkError as e:
+        print(f"Netzwerkfehler bei Bitvavo: {e}")
+        sende_telegram_nachricht(f"🌐 <b>Bitvavo Netzwerkfehler</b>\n\nVerbindungsproblem:\n<code>{escape_html(str(e))}</code>")
+        return
     except Exception as e:
-        print(f"Fehler bei der Verbindung mit Bitvavo: {e}")
+        print(f"Unerwarteter Fehler bei Bitvavo: {e}")
         print(f"Fehlertyp: {type(e)}")
-        sende_telegram_nachricht(f"Fehler bei der Verbindung mit Bitvavo: {escape_html(str(e))}")
-        wallet_bestaende = {}
-        # Wir brechen hier ab, da ohne Bitvavo-Verbindung die Hauptfunktion nicht sinnvoll ist.
+        sende_telegram_nachricht(f"⚠️ <b>Unerwarteter Bitvavo-Fehler</b>\n\n<code>{escape_html(str(e))}</code>")
         return
 
     ergebnis_daten = []
