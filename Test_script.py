@@ -15,9 +15,10 @@ COINS_TO_ANALYZE: Dict[str, Dict[str, str]] = {
     'Bitcoin': {'symbol': 'BTC'}, 'Ethereum': {'symbol': 'ETH'},
     'Solana': {'symbol': 'SOL'}, 'Cardano': {'symbol': 'ADA'},
     'Avalanche': {'symbol': 'AVAX'}, 'Chainlink': {'symbol': 'LINK'},
-    'Polygon': {'symbol': 'MATIC'}, 'Polkadot': {'symbol': 'DOT'},
-    'Dogecoin': {'symbol': 'DOGE'}, 'Toncoin': {'symbol': 'TON'},
-    'Ethena': {'symbol': 'ENA'}, 'Ondo': {'symbol': 'ONDO'},
+    'Polkadot': {'symbol': 'DOT'}, 'Dogecoin': {'symbol': 'DOGE'},
+    'Toncoin': {'symbol': 'TON'}, 'Ethena': {'symbol': 'ENA'},
+    'Ondo': {'symbol': 'ONDO'}, 'Dai': {'symbol': 'DAI'},
+    'XRP': {'symbol': 'XRP'}, 'BNB': {'symbol': 'BNB'},
 }
 
 # --- HELFERFUNKTIONEN ---
