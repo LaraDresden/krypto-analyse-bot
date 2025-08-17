@@ -63,19 +63,15 @@ def schreibe_in_google_sheet(daten: dict):
         spreadsheet = gc.open("Krypto-Analyse-DB")
         worksheet = spreadsheet.worksheet("Market_Data")
         
-        if daten.get('error'):
-            neue_zeile = [
-                datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                daten.get('name', 'N/A'), "N/A", "N/A", "Fehler",
-                daten.get('error', 'Unbekannter Fehler')
-            ]
-        else:
-            neue_zeile = [
-                datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                daten.get('name', 'N/A'), f"{daten.get('price', 0):.4f}",
-                f"{daten.get('rsi', 0):.2f}", "Erfolgreich", ""
-            ]
-        worksheet.append_row(neue_zeile)
+        row_data = [
+            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            daten.get('name', 'N/A'),
+            f"{daten.get('price', 0):.4f}" if daten.get('price') is not None else "N/A",
+            f"{daten.get('rsi', 0):.2f}" if daten.get('rsi') is not None else "N/A",
+            "Erfolgreich" if not daten.get('error') else "Fehler",
+            daten.get('error', '')
+        ]
+        worksheet.append_row(row_data)
         print(f"Protokollierung für {daten.get('name')} abgeschlossen.")
     except Exception as e:
         print(f"Fehler beim Schreiben in Google Sheet: {e}")
@@ -84,7 +80,8 @@ def analysiere_coin(coin_name: str, coin_symbol: str) -> dict:
     """Holt und analysiert Daten für einen Coin und gibt ein Ergebnis-Dictionary zurück."""
     print(f"Starte Datenabruf für {coin_name} ({coin_symbol})...")
     api_key = os.getenv('ALPHA_VANTAGE_API_KEY')
-    if not api_key: return {'name': coin_name, 'error': 'API-Schlüssel nicht gefunden!'}
+    if not api_key: 
+        return {'name': coin_name, 'error': 'API-Schlüssel nicht gefunden!'}
 
     url = 'https://www.alphavantage.co/query'
     params = {'function': 'DIGITAL_CURRENCY_DAILY', 'symbol': coin_symbol, 'market': 'USD', 'apikey': api_key}
@@ -99,3 +96,63 @@ def analysiere_coin(coin_name: str, coin_symbol: str) -> dict:
             error_msg = daten.get('Note') or daten.get('Error Message', f"Ungültige Daten für {coin_name} empfangen.")
             print(f"Fehler bei {coin_name}: {error_msg}")
             return {'name': coin_name, 'error': error_msg}
+
+        time_series = daten['Time Series (Digital Currency Daily)']
+        df = pd.DataFrame.from_dict(time_series, orient='index').astype(float)
+        df = df.rename(columns={'4. close': 'price'})
+        df = df.sort_index(ascending=True)
+
+        return {
+            'name': coin_name, 'symbol': coin_symbol,
+            'price': df['price'].iloc[-1], 
+            'rsi': talib.RSI(df['price'], timeperiod=14).iloc[-1],
+            'error': None
+        }
+    except Exception as e:
+        print(f"Ein schwerer Fehler ist bei der Analyse von {coin_name} aufgetreten: {e}")
+        return {'name': coin_name, 'error': str(e)}
+
+def run_full_analysis():
+    """Steuert den gesamten Analyseprozess."""
+    ergebnis_daten: List[Dict] = []
+    print("Starte komplette Portfolio-Analyse...")
+
+    for coin_name, coin_data in COINS_TO_ANALYZE.items():
+        analyse_ergebnis = analysiere_coin(coin_name, coin_data['symbol'])
+        ergebnis_daten.append(analyse_ergebnis)
+        schreibe_in_google_sheet(analyse_ergebnis)
+
+    header = "*Tägliches Krypto-Analyse Update* 🤖\n\n"
+    nachrichten_teile: List[str] = []
+
+    for daten in ergebnis_daten:
+        if daten.get('error'):
+            error_text = daten['error']
+            if len(error_text) > 100: 
+                error_text = error_text[:100] + "..."
+            text_block = (f"*{escape_markdown(daten.get('name', 'Unbekannt'))}*\n"
+                          f"❌ Analyse fehlgeschlagen\n"
+                          f"`Grund: {escape_markdown(error_text)}`")
+        else:
+            if daten['rsi'] > 70: 
+                status_text = "🟢 Überkauft (Overbought)"
+            elif daten['rsi'] < 30: 
+                status_text = "🔴 Überverkauft (Oversold)"
+            else: 
+                status_text = "🟡 Neutral"
+            
+            text_block = (f"*{escape_markdown(daten['name'])} ({escape_markdown(daten['symbol'])})*\n"
+                        f"Preis: `${daten['price']:,.4f}`\n"
+                        f"RSI: `{daten['rsi']:.2f}`\n"
+                        f"Status: {escape_markdown(status_text)}")
+        
+        nachrichten_teile.append(text_block)
+
+    separator = "\n\n" + escape_markdown("--------------------") + "\n\n"
+    finale_nachricht = header + separator.join(nachrichten_teile)
+    
+    sende_telegram_nachricht(finale_nachricht)
+    print("Analyse-Lauf abgeschlossen.")
+
+if __name__ == "__main__":
+    run_full_analysis()
