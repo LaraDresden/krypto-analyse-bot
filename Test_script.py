@@ -6,6 +6,7 @@ import ccxt
 import gspread
 import pandas as pd
 import talib
+import requests  # HINZUGEFÜGT: Fehlender Import
 from datetime import datetime
 from typing import Dict, List, Any
 
@@ -69,7 +70,7 @@ def sende_telegram_nachricht(nachricht: str):
         response.raise_for_status()
         print("Telegram-Benachrichtigung erfolgreich gesendet!")
     except requests.exceptions.RequestException as e:
-        print(f"Fehler beim Senden der Telegram-Nachricht: {e.response.text}")
+        print(f"Fehler beim Senden der Telegram-Nachricht: {e.response.text if e.response else e}")
 
 # --- API- & ANALYSE-FUNKTIONEN ---
 def get_bitvavo_data(bitvavo, coin_name, symbol):
@@ -99,11 +100,34 @@ def run_full_analysis():
     
     try:
         bitvavo = ccxt.bitvavo({'apiKey': api_key, 'secret': secret})
+        
+        # KORRIGIERT: Robustere Behandlung der Balance-Daten
         balance_data = bitvavo.fetch_balance()
-        wallet_bestaende = {symbol: data['free'] for symbol, data in balance_data.items() if data['free'] > 0}
-        print(f"Erfolgreich {len(wallet_bestaende)} Coins mit Bestand auf Bitvavo gefunden.")
+        print(f"Balance-Datentyp: {type(balance_data)}")
+        print(f"Balance-Daten (erste 3 Einträge): {str(balance_data)[:500]}...")
+        
+        wallet_bestaende = {}
+        
+        # Prüfe verschiedene mögliche Strukturen der Balance-Daten
+        if isinstance(balance_data, dict):
+            # Standard ccxt Format: {'BTC': {'free': 0.001, 'used': 0, 'total': 0.001}, ...}
+            wallet_bestaende = {symbol: data.get('free', 0) for symbol, data in balance_data.items() 
+                              if isinstance(data, dict) and data.get('free', 0) > 0}
+        elif isinstance(balance_data, list):
+            # Falls es eine Liste ist, durchsuche nach der korrekten Struktur
+            for item in balance_data:
+                if isinstance(item, dict) and 'symbol' in item and 'free' in item:
+                    if item['free'] > 0:
+                        wallet_bestaende[item['symbol']] = item['free']
+        else:
+            print(f"Unerwartete Balance-Datenstruktur: {type(balance_data)}")
+            wallet_bestaende = {}
+        
+        print(f"Erfolgreich {len(wallet_bestaende)} Coins mit Bestand auf Bitvavo gefunden: {list(wallet_bestaende.keys())}")
+        
     except Exception as e:
         print(f"Fehler bei der Verbindung mit Bitvavo: {e}")
+        print(f"Fehlertyp: {type(e)}")
         sende_telegram_nachricht(f"Fehler bei der Verbindung mit Bitvavo: {escape_markdown(str(e))}")
         wallet_bestaende = {}
         # Wir brechen hier ab, da ohne Bitvavo-Verbindung die Hauptfunktion nicht sinnvoll ist.
@@ -135,6 +159,7 @@ def run_full_analysis():
             status_text = "🟡 Neutral"
             if daten.get('rsi', 50) > 70: status_text = "🟢 Überkauft"
             elif daten.get('rsi', 50) < 30: status_text = "🔴 Überverkauft"
+            symbol = next((coin_data['symbol'] for coin_name, coin_data in COINS_TO_ANALYZE.items() if coin_name == daten['name']), 'N/A')
             text_block = (f"*{escape_markdown(daten['name'])} ({escape_markdown(symbol)})*:\n"
                         f"`Preis: €{daten.get('price', 0):,.2f}` | `RSI: {daten.get('rsi', 0):.2f}`\n"
                         f"Status: {escape_markdown(status_text)}")
