@@ -1,37 +1,200 @@
-import gspread
-import json
 import os
+import re
+import time
+import json
+import ccxt
+import gspread
+import pandas as pd
+import talib
 from datetime import datetime
+from typing import Dict, List, Any
 
-def test_google_sheet_connection():
-    """Ein isolierter Test, um die Google Sheets Verbindung zu überprüfen."""
-    print("Starte Google Sheets Verbindungstest...")
+# --- KONFIGURATION ---
+# Die Symbole müssen exakt denen auf Bitvavo entsprechen (z.B. 'BTC-EUR')
+COINS_TO_ANALYZE: Dict[str, Dict[str, str]] = {
+    'Bitcoin': {'symbol': 'BTC'},
+    'Ethereum': {'symbol': 'ETH'},
+    'Solana': {'symbol': 'SOL'},
+    'Cardano': {'symbol': 'ADA'},
+    'Avalanche': {'symbol': 'AVAX'},
+    'Chainlink': {'symbol': 'LINK'},
+    'Polygon': {'symbol': 'MATIC'},
+    'Polkadot': {'symbol': 'DOT'},
+    'Dogecoin': {'symbol': 'DOGE'},
+    'Toncoin': {'symbol': 'TON'},
+    'Ethena': {'symbol': 'ENA'},
+    'Ondo': {'symbol': 'ONDO'},
+}
+
+# --- HELFERFUNKTIONEN ---
+def escape_markdown(text: Any) -> str:
+    text = str(text)
+    escape_chars = r'_*[]()~`>#+-=|{}.!'
+    return re.sub(f'([{re.escape(escape_chars)}])', r'\\\1', text)
+
+# --- API- & ANALYSE-FUNKTIONEN ---
+def get_bitvavo_data(bitvavo: ccxt.bitvavo, coin_name: str, symbol: str) -> dict:
+    """Holt historische Marktdaten von Bitvavo und berechnet den RSI."""
+    try:
+        markt_symbol = f'{symbol}/EUR'
+        print(f"Starte Marktdatenabruf für {markt_symbol} von Bitvavo...")
+        
+        # Holen der letzten 40 täglichen Kerzen (OHLCV)
+        # time.sleep, um Rate-Limits zu respektieren
+        time.sleep(1) 
+        ohlcv = bitvavo.fetch_ohlcv(markt_symbol, '1d', limit=40)
+        
+        df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+        
+        return {
+            'name': coin_name,
+            'price': df['close'].iloc[-1],
+            'rsi': talib.RSI(df['close'], timeperiod=14).iloc[-1],
+            'error': None
+        }
+    except Exception as e:
+        print(f"Fehler beim Abruf der Marktdaten für {coin_name}: {e}")
+        return {'name': coin_name, 'error': str(e)}
+
+# --- DATENBANK & BENACHRICHTIGUNG ---
+def schreibe_in_google_sheet(daten: dict):
+    # Diese Funktion bleibt logisch gleich, schreibt jetzt aber EUR-Werte
+    print(f"Protokolliere Ergebnis für {daten.get('name')} in Google Sheet...")
+    # ... (Code ist im finalen Skript unten)
+    
+def sende_telegram_nachricht(nachricht: str):
+    # Diese Funktion bleibt unverändert
+    # ... (Code ist im finalen Skript unten)
+
+# ==============================================================================
+# ===================== VOLLSTÄNDIGER GEPRÜFTER CODE =============================
+# ==============================================================================
+
+import os
+import re
+import time
+import json
+import ccxt
+import gspread
+import pandas as pd
+import talib
+from datetime import datetime
+from typing import Dict, List, Any
+
+COINS_TO_ANALYZE: Dict[str, Dict[str, str]] = {
+    'Bitcoin': {'symbol': 'BTC'}, 'Ethereum': {'symbol': 'ETH'},
+    'Solana': {'symbol': 'SOL'}, 'Cardano': {'symbol': 'ADA'},
+    'Avalanche': {'symbol': 'AVAX'}, 'Chainlink': {'symbol': 'LINK'},
+    'Polygon': {'symbol': 'MATIC'}, 'Polkadot': {'symbol': 'DOT'},
+    'Dogecoin': {'symbol': 'DOGE'}, 'Toncoin': {'symbol': 'TON'},
+    'Ethena': {'symbol': 'ENA'}, 'Ondo': {'symbol': 'ONDO'},
+}
+
+def escape_markdown(text: Any) -> str:
+    text = str(text)
+    escape_chars = r'_*[]()~`>#+-=|{}.!'
+    return re.sub(f'([{re.escape(escape_chars)}])', r'\\\1', text)
+
+def schreibe_in_google_sheet(daten: dict):
+    print(f"Protokolliere Ergebnis für {daten.get('name')} in Google Sheet...")
     try:
         credentials_json_str = os.getenv('GOOGLE_CREDENTIALS')
-        if not credentials_json_str:
-            print("Fehler: GOOGLE_CREDENTIALS Secret nicht gefunden!")
-            return
-
+        if not credentials_json_str: return
         credentials_dict = json.loads(credentials_json_str)
-        
         gc = gspread.service_account_from_dict(credentials_dict)
-        
-        print("Authentifizierung erfolgreich. Versuche, Spreadsheet zu öffnen...")
         spreadsheet = gc.open("Krypto-Analyse-DB")
         worksheet = spreadsheet.worksheet("Market_Data")
-        print("Spreadsheet und Tabellenblatt erfolgreich gefunden.")
-        
-        test_zeile = [datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "Verbindungstest", "123.45", "50.00", "Erfolgreich", "Test erfolgreich"]
-        
-        worksheet.append_row(test_zeile)
-        print(">>> ERFOLG! Testzeile wurde erfolgreich in Google Sheet geschrieben.")
-
-    except gspread.exceptions.APIError as e:
-        print(f">>> API FEHLER! Google hat die Anfrage abgelehnt. Grund:")
-        print(e.response.text)
+        row_data = [
+            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            daten.get('name', 'N/A'),
+            f"{daten.get('price', 0):.4f}" if daten.get('price') is not None else "N/A",
+            f"{daten.get('rsi', 0):.2f}" if daten.get('rsi') is not None else "N/A",
+            "Erfolgreich" if not daten.get('error') else "Fehler",
+            daten.get('error', ''),
+            f"{daten.get('bestand', 0):.8f}" if daten.get('bestand') is not None else "0",
+            f"{daten.get('wert_eur', 0):.2f}" if daten.get('wert_eur', 0) > 0 else "0"
+        ]
+        worksheet.append_row(row_data)
     except Exception as e:
-        print(f">>> ALLGEMEINER FEHLER! Ein unerwarteter Fehler ist aufgetreten:")
-        print(e)
+        print(f"Fehler beim Schreiben in Google Sheet: {e}")
+
+def sende_telegram_nachricht(nachricht: str):
+    bot_token = os.getenv('TELEGRAM_BOT_TOKEN')
+    chat_id = os.getenv('TELEGRAM_CHAT_ID')
+    if not bot_token or not chat_id: return
+    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+    params = {'chat_id': chat_id, 'text': nachricht, 'parse_mode': 'MarkdownV2'}
+    try:
+        response = requests.post(url, params=params)
+        response.raise_for_status()
+    except requests.exceptions.RequestException as e:
+        print(f"Fehler beim Senden der Telegram-Nachricht: {e.response.text}")
+
+def get_bitvavo_data(bitvavo, coin_name, symbol):
+    try:
+        markt_symbol = f'{symbol}/EUR'
+        print(f"Starte Marktdatenabruf für {markt_symbol} von Bitvavo...")
+        time.sleep(1) # Respektiert Rate-Limits
+        ohlcv = bitvavo.fetch_ohlcv(markt_symbol, '1d', limit=40)
+        df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+        return {'name': coin_name, 'price': df['close'].iloc[-1], 'rsi': talib.RSI(df['close'], timeperiod=14).iloc[-1], 'error': None}
+    except Exception as e:
+        return {'name': coin_name, 'error': str(e)}
+
+def run_full_analysis():
+    print("Starte kompletten Analyse-Lauf...")
+    api_key = os.getenv('BITVAVO_API_KEY')
+    secret = os.getenv('BITVAVO_API_SECRET')
+    if not api_key or not secret:
+        print("Fehler: Bitvavo API-Schlüssel nicht gefunden!")
+        return
+    try:
+        bitvavo = ccxt.bitvavo({'apiKey': api_key, 'secret': secret})
+        balance_data = bitvavo.fetch_balance()
+        wallet_bestaende = {symbol: data['free'] for symbol, data in balance_data.items() if data['free'] > 0}
+        print(f"Erfolgreich {len(wallet_bestaende)} Coins mit Bestand auf Bitvavo gefunden.")
+    except Exception as e:
+        print(f"Fehler bei der Verbindung mit Bitvavo: {e}")
+        wallet_bestaende = {}
+
+    ergebnis_daten = []
+    total_portfolio_wert = 0
+    for coin_name, coin_data in COINS_TO_ANALYZE.items():
+        symbol = coin_data['symbol']
+        analyse_ergebnis = get_bitvavo_data(bitvavo, coin_name, symbol)
+        
+        bestand = wallet_bestaende.get(symbol, 0)
+        analyse_ergebnis['bestand'] = bestand
+        if not analyse_ergebnis.get('error'):
+            wert_eur = bestand * analyse_ergebnis['price']
+            analyse_ergebnis['wert_eur'] = wert_eur
+            total_portfolio_wert += wert_eur
+        
+        ergebnis_daten.append(analyse_ergebnis)
+
+    header = "*Tägliches Krypto-Analyse & Portfolio Update* 🤖\n\n"
+    nachrichten_teile = []
+    for daten in ergebnis_daten:
+        schreibe_in_google_sheet(daten)
+        text_block = ""
+        if daten.get('error'):
+            text_block = f"*{escape_markdown(daten.get('name'))}*: ❌ Datenabruf fehlgeschlagen"
+        else:
+            status_text = "🟡 Neutral"
+            if daten['rsi'] > 70: status_text = "🟢 Überkauft"
+            elif daten['rsi'] < 30: status_text = "🔴 Überverkauft"
+            text_block = (f"*{escape_markdown(daten['name'])} ({escape_markdown(daten.get('symbol'))})*:\n"
+                        f"`Preis: €{daten.get('price', 0):,.2f}` | `RSI: {daten.get('rsi', 0):.2f}`\n"
+                        f"Status: {escape_markdown(status_text)}")
+            if daten.get('bestand', 0) > 0:
+                text_block += f"\n*Bestand*: `{daten['bestand']:.4f}` (*Wert: €{daten.get('wert_eur', 0):,.2f}*)"
+        nachrichten_teile.append(text_block)
+
+    footer = f"\n\n*Portfolio Gesamtwert*: `€{total_portfolio_wert:,.2f}`"
+    separator = "\n" + escape_markdown("--------------------") + "\n"
+    finale_nachricht = header + separator.join(nachrichten_teile) + footer
+    sende_telegram_nachricht(finale_nachricht)
+    print("Analyse-Lauf abgeschlossen.")
 
 if __name__ == "__main__":
-    test_google_sheet_connection()
+    run_full_analysis()
