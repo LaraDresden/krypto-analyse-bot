@@ -21,11 +21,13 @@ COINS_TO_ANALYZE: Dict[str, Dict[str, str]] = {
 }
 
 # --- HELFERFUNKTIONEN ---
-def escape_markdown(text: Any) -> str:
-    """Maskiert alle Sonderzeichen für Telegrams MarkdownV2."""
+def escape_html(text: Any) -> str:
+    """Maskiert HTML-Sonderzeichen für Telegram HTML-Formatierung."""
     text = str(text)
-    escape_chars = r'_*[]()~`>#+-=|{}.!'
-    return re.sub(f'([{re.escape(escape_chars)}])', r'\\\1', text)
+    replacements = {'&': '&amp;', '<': '&lt;', '>': '&gt;'}
+    for char, replacement in replacements.items():
+        text = text.replace(char, replacement)
+    return text
 
 # --- DATENBANK & BENACHRICHTIGUNG ---
 def schreibe_in_google_sheet(daten: dict):
@@ -64,7 +66,7 @@ def sende_telegram_nachricht(nachricht: str):
         print("Fehler: Telegram-Zugangsdaten nicht gefunden!")
         return
     url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
-    params = {'chat_id': chat_id, 'text': nachricht, 'parse_mode': 'MarkdownV2'}
+    params = {'chat_id': chat_id, 'text': nachricht, 'parse_mode': 'HTML'}
     try:
         response = requests.post(url, params=params)
         response.raise_for_status()
@@ -128,7 +130,7 @@ def run_full_analysis():
     except Exception as e:
         print(f"Fehler bei der Verbindung mit Bitvavo: {e}")
         print(f"Fehlertyp: {type(e)}")
-        sende_telegram_nachricht(f"Fehler bei der Verbindung mit Bitvavo: {escape_markdown(str(e))}")
+        sende_telegram_nachricht(f"Fehler bei der Verbindung mit Bitvavo: {escape_html(str(e))}")
         wallet_bestaende = {}
         # Wir brechen hier ab, da ohne Bitvavo-Verbindung die Hauptfunktion nicht sinnvoll ist.
         return
@@ -148,27 +150,27 @@ def run_full_analysis():
         
         ergebnis_daten.append(analyse_ergebnis)
 
-    header = "*Tägliches Krypto-Analyse & Portfolio Update* 🤖\n\n"
+    header = "<b>Tägliches Krypto-Analyse &amp; Portfolio Update</b> 🤖\n\n"
     nachrichten_teile = []
     for daten in ergebnis_daten:
         schreibe_in_google_sheet(daten)
         text_block = ""
         if daten.get('error'):
-            text_block = f"*{escape_markdown(daten.get('name'))}*: ❌ Datenabruf fehlgeschlagen"
+            text_block = f"<b>{escape_html(daten.get('name'))}</b>: ❌ Datenabruf fehlgeschlagen"
         else:
             status_text = "🟡 Neutral"
             if daten.get('rsi', 50) > 70: status_text = "🟢 Überkauft"
             elif daten.get('rsi', 50) < 30: status_text = "🔴 Überverkauft"
             symbol = next((coin_data['symbol'] for coin_name, coin_data in COINS_TO_ANALYZE.items() if coin_name == daten['name']), 'N/A')
-            text_block = (f"*{escape_markdown(daten['name'])} ({escape_markdown(symbol)})*:\n"
-                        f"`Preis: €{daten.get('price', 0):,.2f}` | `RSI: {daten.get('rsi', 0):.2f}`\n"
-                        f"Status: {escape_markdown(status_text)}")
+            text_block = (f"<b>{escape_html(daten['name'])} ({escape_html(symbol)})</b>:\n"
+                        f"<code>Preis: €{daten.get('price', 0):,.2f}</code> | <code>RSI: {daten.get('rsi', 0):.2f}</code>\n"
+                        f"Status: {status_text}")
             if daten.get('bestand', 0) > 0:
-                text_block += f"\n*Bestand*: `{daten['bestand']:.4f}` (*Wert: €{daten.get('wert_eur', 0):,.2f}*)"
+                text_block += f"\n<b>Bestand</b>: <code>{daten['bestand']:.4f}</code> (<b>Wert: €{daten.get('wert_eur', 0):,.2f}</b>)"
         nachrichten_teile.append(text_block)
 
-    footer = f"\n\n*Portfolio Gesamtwert*: `€{total_portfolio_wert:,.2f}`"
-    separator = "\n" + escape_markdown("--------------------") + "\n"
+    footer = f"\n\n<b>Portfolio Gesamtwert</b>: <code>€{total_portfolio_wert:,.2f}</code>"
+    separator = "\n" + "--------------------" + "\n"
     finale_nachricht = header + separator.join(nachrichten_teile) + footer
     sende_telegram_nachricht(finale_nachricht)
     print("Analyse-Lauf abgeschlossen.")
