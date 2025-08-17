@@ -17,8 +17,8 @@ COINS_TO_ANALYZE: Dict[str, Dict[str, str]] = {
     'Avalanche': {'symbol': 'AVAX'}, 'Chainlink': {'symbol': 'LINK'},
     'Polkadot': {'symbol': 'DOT'}, 'Dogecoin': {'symbol': 'DOGE'},
     'Toncoin': {'symbol': 'TON'}, 'Ethena': {'symbol': 'ENA'},
-    'Ondo': {'symbol': 'ONDO'}, 'Dai': {'symbol': 'DAI'},
-    'XRP': {'symbol': 'XRP'}, 'BNB': {'symbol': 'BNB'},
+    'Ondo': {'symbol': 'ONDO'}, 'XRP': {'symbol': 'XRP'}, 
+    'BNB': {'symbol': 'BNB'},
 }
 
 # --- HELFERFUNKTIONEN ---
