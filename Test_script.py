@@ -21,9 +21,33 @@ COINS_TO_ANALYZE: Dict[str, Dict[str, str]] = {
     'Polkadot': {'symbol': 'DOT'},
     'Dogecoin': {'symbol': 'DOGE'},
     'Toncoin': {'symbol': 'TON'},
-    'Ethena': {'symbol': 'ENA'},   # Potenziell nicht unterstützt
-    'Ondo': {'symbol': 'ONDO'},     # Potenziell nicht unterstützt
+    'Ethena': {'symbol': 'ENA'},
+    'Ondo': {'symbol': 'ONDO'},
 }
+
+def escape_markdown(text: Any) -> str:
+    """Maskiert alle Sonderzeichen für Telegrams MarkdownV2."""
+    text = str(text)
+    escape_chars = r'_*[]()~`>#+-=|{}.!'
+    return re.sub(f'([{re.escape(escape_chars)}])', r'\\\1', text)
+
+def sende_telegram_nachricht(nachricht: str):
+    """Sendet eine formatierte Nachricht an Ihren Telegram-Bot."""
+    bot_token = os.getenv('TELEGRAM_BOT_TOKEN')
+    chat_id = os.getenv('TELEGRAM_CHAT_ID')
+    if not bot_token or not chat_id:
+        print("Fehler: Telegram-Zugangsdaten nicht gefunden!")
+        return
+
+    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+    params = {'chat_id': chat_id, 'text': nachricht, 'parse_mode': 'MarkdownV2'}
+    
+    try:
+        response = requests.post(url, params=params)
+        response.raise_for_status()
+        print("Telegram-Benachrichtigung erfolgreich gesendet!")
+    except requests.exceptions.RequestException as e:
+        print(f"Fehler beim Senden der Telegram-Nachricht: {e.response.text}")
 
 def schreibe_in_google_sheet(daten: dict):
     """Schreibt das Ergebnis (Erfolg oder Fehler) in das Google Sheet."""
@@ -39,23 +63,17 @@ def schreibe_in_google_sheet(daten: dict):
         spreadsheet = gc.open("Krypto-Analyse-DB")
         worksheet = spreadsheet.worksheet("Market_Data")
         
-        # VERBESSERT: Bereitet die Zeile für Erfolg oder Fehler vor
         if daten.get('error'):
             neue_zeile = [
                 datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                daten.get('name', 'N/A'),
-                "N/A", "N/A", # Preis & RSI
-                "Fehler",    # Status
-                daten.get('error', 'Unbekannter Fehler') # Anmerkung
+                daten.get('name', 'N/A'), "N/A", "N/A", "Fehler",
+                daten.get('error', 'Unbekannter Fehler')
             ]
         else:
             neue_zeile = [
                 datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                daten.get('name', 'N/A'),
-                f"{daten.get('price', 0):.4f}",
-                f"{daten.get('rsi', 0):.2f}",
-                "Erfolgreich", # Status
-                ""            # Anmerkung
+                daten.get('name', 'N/A'), f"{daten.get('price', 0):.4f}",
+                f"{daten.get('rsi', 0):.2f}", "Erfolgreich", ""
             ]
         worksheet.append_row(neue_zeile)
         print(f"Protokollierung für {daten.get('name')} abgeschlossen.")
@@ -72,7 +90,7 @@ def analysiere_coin(coin_name: str, coin_symbol: str) -> dict:
     params = {'function': 'DIGITAL_CURRENCY_DAILY', 'symbol': coin_symbol, 'market': 'USD', 'apikey': api_key}
     
     try:
-        time.sleep(15) # WICHTIG: Pause *vor* dem API-Aufruf, um das Limit sicher einzuhalten
+        time.sleep(15)
         response = requests.get(url, params=params)
         response.raise_for_status()
         daten = response.json()
@@ -81,45 +99,3 @@ def analysiere_coin(coin_name: str, coin_symbol: str) -> dict:
             error_msg = daten.get('Note') or daten.get('Error Message', f"Ungültige Daten für {coin_name} empfangen.")
             print(f"Fehler bei {coin_name}: {error_msg}")
             return {'name': coin_name, 'error': error_msg}
-
-        time_series = daten['Time Series (Digital Currency Daily)']
-        df = pd.DataFrame.from_dict(time_series, orient='index').astype(float)
-        df = df.rename(columns={'4. close': 'price'})
-        df = df.sort_index(ascending=True)
-
-        return {
-            'name': coin_name, 'symbol': coin_symbol,
-            'price': df['price'].iloc[-1], 'rsi': talib.RSI(df['price'], timeperiod=14).iloc[-1],
-            'error': None
-        }
-    except Exception as e:
-        print(f"Ein schwerer Fehler ist bei der Analyse von {coin_name} aufgetreten: {e}")
-        return {'name': coin_name, 'error': str(e)}
-
-def run_full_analysis():
-    """Steuert den gesamten Analyseprozess."""
-    # ... (sende_telegram_nachricht & escape_markdown hier einfügen, unverändert) ...
-    # ...
-    header = "*Tägliches Krypto-Analyse Update* 🤖\n\n"
-    nachrichten_teile = []
-
-    for daten in ergebnis_daten:
-        # VERBESSERT: Macht die Fehlermeldung in Telegram "sprechend"
-        if daten.get('error'):
-            error_text = daten['error']
-            # Kürzt lange Fehlermeldungen für eine bessere Lesbarkeit
-            if len(error_text) > 100:
-                error_text = error_text[:100] + "..."
-            text_block = (f"*{escape_markdown(daten.get('name', 'Unbekannt'))}*\n"
-                          f"❌ Analyse fehlgeschlagen\n"
-                          f"`Grund: {escape_markdown(error_text)}`")
-        else:
-            # ... (Logik für Erfolgsfall bleibt gleich) ...
-        nachrichten_teile.append(text_block)
-    
-    # ... (Rest der Funktion bleibt gleich) ...
-
-# Fügen Sie hier die vollständigen, unveränderten Funktionen `sende_telegram_nachricht`
-# und `escape_markdown` ein. Der Hauptaufruf am Ende bleibt ebenfalls gleich.
-if __name__ == "__main__":
-    run_full_analysis()
