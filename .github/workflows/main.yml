@@ -18,16 +18,15 @@ jobs:
       with:
         python-version: '3.10'
 
-    # KORRIGIERT: Installiert jetzt "requests" statt "ccxt"
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install requests pandas TA-Lib
+        pip install requests pandas TA-Lib gspread google-auth-oauthlib
 
-    # HINZUGEFÜGT: Dieser Block übergibt den API-Schlüssel sicher an das Skript
     - name: Run Python script
       env:
         ALPHA_VANTAGE_API_KEY: ${{ secrets.ALPHA_VANTAGE_API_KEY }}
         TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
       run: python Test_script.py
