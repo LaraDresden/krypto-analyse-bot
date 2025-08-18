@@ -267,12 +267,20 @@ def setup_gemini_ai():
     
     try:
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-pro')
-        print("✅ Gemini AI erfolgreich initialisiert")
+        # KORRIGIERT: Neues Modell verwenden (gemini-pro ist deprecated)
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        print("✅ Gemini AI erfolgreich initialisiert mit gemini-1.5-flash")
         return model
     except Exception as e:
         print(f"❌ FEHLER bei Gemini-Initialisierung: {e}")
-        return None
+        # Fallback auf alternatives Modell
+        try:
+            model = genai.GenerativeModel('gemini-1.5-pro')
+            print("✅ Gemini AI Fallback erfolgreich mit gemini-1.5-pro")
+            return model
+        except Exception as e2:
+            print(f"❌ Auch Fallback fehlgeschlagen: {e2}")
+            return None
 
 def hole_aktuelle_news_optimiert() -> Dict[str, List[Dict]]:
     """Optimierte News-Suche: Eine Anfrage für alle Coins kombiniert."""
