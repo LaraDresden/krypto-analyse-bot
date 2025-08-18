@@ -84,19 +84,28 @@ def setup_gemini_ai():
     """Initialisiert die Gemini AI API."""
     api_key = os.getenv('GEMINI_API_KEY')
     if not api_key:
-        print("⚠️ Gemini AI nicht verfügbar - Schlüssel fehlt.")
+        print("⚠️ FEHLER: GEMINI_API_KEY nicht gefunden!")
         return None
+    
+    print(f"🔑 Gemini API Key gefunden: {api_key[:20]}...")
+    
     try:
         genai.configure(api_key=api_key)
-        return genai.GenerativeModel('gemini-pro')
+        model = genai.GenerativeModel('gemini-pro')
+        print("✅ Gemini AI erfolgreich initialisiert")
+        return model
     except Exception as e:
-        print(f"Fehler bei Gemini-Initialisierung: {e}")
+        print(f"❌ FEHLER bei Gemini-Initialisierung: {e}")
         return None
 
 def hole_aktuelle_news(coin_name: str) -> List[Dict]:
     """Holt aktuelle Nachrichten für einen Coin von NewsAPI."""
     api_key = os.getenv('NEWS_API_KEY')
-    if not api_key: return []
+    if not api_key: 
+        print(f"⚠️ NEWS_API_KEY nicht gefunden für {coin_name}")
+        return []
+    
+    print(f"🔑 News API Key für {coin_name}: {api_key[:20]}...")
     
     search_terms = COIN_SEARCH_TERMS.get(coin_name, [coin_name])
     gestern = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
@@ -105,22 +114,38 @@ def hole_aktuelle_news(coin_name: str) -> List[Dict]:
     for term in search_terms[:2]:
         try:
             url = f"https://newsapi.org/v2/everything?q={requests.utils.quote(term)}&language=en&from={gestern}&sortBy=relevancy&pageSize=5&apiKey={api_key}"
+            print(f"📰 Suche News für '{term}'...")
             response = requests.get(url, timeout=10)
             response.raise_for_status()
-            articles = response.json().get('articles', [])
-            all_articles.extend([a for a in articles if any(src in a.get('url', '') for src in QUALITY_SOURCES)])
+            data = response.json()
+            articles = data.get('articles', [])
+            print(f"📊 {len(articles)} Artikel gefunden für '{term}'")
+            
+            quality_articles = [a for a in articles if any(src in a.get('url', '') for src in QUALITY_SOURCES)]
+            print(f"✅ {len(quality_articles)} Qualitäts-Artikel nach Filterung")
+            all_articles.extend(quality_articles)
             time.sleep(0.5)  # Rate limiting
         except Exception as e:
-            print(f"Fehler beim News-Abruf für '{term}': {e}")
+            print(f"❌ FEHLER beim News-Abruf für '{term}': {e}")
     
     unique_articles = {a['title']: a for a in all_articles}.values()
-    return sorted(list(unique_articles), key=lambda x: x.get('publishedAt'), reverse=True)[:3]
+    final_articles = sorted(list(unique_articles), key=lambda x: x.get('publishedAt'), reverse=True)[:3]
+    print(f"🎯 Final: {len(final_articles)} einzigartige Artikel für {coin_name}")
+    return final_articles
 
 def analysiere_news_mit_ki(coin_name: str, news_artikel: List[Dict], model) -> Dict:
     """Analysiert News-Artikel mit Gemini AI für Sentiment und Kategorisierung."""
-    if not model or not news_artikel: return {}
+    if not model:
+        print(f"❌ Kein Gemini Model für {coin_name}")
+        return {}
+    
+    if not news_artikel:
+        print(f"ℹ️ Keine News-Artikel für {coin_name}")
+        return {}
     
     news_text = "\n".join([f"Titel: {a['title']}\nBeschreibung: {a.get('description', '')}" for a in news_artikel])
+    print(f"📝 News-Text für {coin_name} ({len(news_text)} Zeichen): {news_text[:200]}...")
+    
     prompt = f"""Analysiere die folgenden Nachrichten über {coin_name}: "{news_text}". 
 
 Antworte AUSSCHLIESSLICH im folgenden JSON-Format:
@@ -132,29 +157,46 @@ Antworte AUSSCHLIESSLICH im folgenden JSON-Format:
 }}"""
     
     try:
+        print(f"🤖 Sende Anfrage an Gemini für {coin_name}...")
         response = model.generate_content(prompt)
         response_text = response.text.strip()
+        print(f"📨 Gemini Antwort für {coin_name}: {response_text}")
         
         # JSON extrahieren falls Markdown-Formatierung vorhanden
         if '```json' in response_text:
             response_text = re.search(r'```json\s*([\s\S]+?)\s*```', response_text).group(1)
+            print(f"🔧 JSON aus Markdown extrahiert: {response_text}")
         elif '```' in response_text:
             response_text = re.search(r'```\s*([\s\S]+?)\s*```', response_text).group(1)
+            print(f"🔧 Text aus Code-Block extrahiert: {response_text}")
         
         result = json.loads(response_text)
+        print(f"✅ JSON erfolgreich geparst für {coin_name}: {result}")
         
         # Zusätzliche Kritisch-Prüfung mit Keywords
         result['kritisch'] = any(kw.lower() in news_text.lower() for kw in CRITICAL_KEYWORDS) or result.get('kritisch', False)
         
-        return {
+        final_result = {
             'sentiment_score': max(-10, min(10, result.get('sentiment_score', 0))),
             'kategorie': result.get('kategorie', 'Andere'),
             'zusammenfassung': result.get('zusammenfassung', 'Diverse Nachrichten')[:50],
             'kritisch': result['kritisch']
         }
+        print(f"🎯 Finales Ergebnis für {coin_name}: {final_result}")
+        return final_result
         
+    except json.JSONDecodeError as e:
+        print(f"❌ JSON-Parsing Fehler für {coin_name}: {e}")
+        print(f"❌ Problematischer Text: {response_text}")
+        return {
+            'sentiment_score': 0,
+            'kategorie': 'Andere',
+            'zusammenfassung': 'JSON-Parsing fehlgeschlagen',
+            'kritisch': any(kw.lower() in news_text.lower() for kw in CRITICAL_KEYWORDS)
+        }
     except Exception as e:
-        print(f"Fehler bei KI-Analyse für {coin_name}: {e}")
+        print(f"❌ Allgemeiner Fehler bei KI-Analyse für {coin_name}: {e}")
+        print(f"❌ Exception Typ: {type(e)}")
         return {
             'sentiment_score': 0,
             'kategorie': 'Andere',
