@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🚀 Krypto Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.js"></script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #1a1a2e; color: #e0e0e0; padding: 10px; margin: 0; }
+        .dashboard { max-width: 1400px; margin: 0 auto; }
+        .dashboard-header, .controls, .kpi-card, .chart-container { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); border-radius: 15px; margin-bottom: 20px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        h1, h3 { color: #fff; margin-bottom: 15px; }
+        .dashboard-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; }
+        .header-stats { display: flex; gap: 20px; align-items: center; }
+        .stat-item { text-align: center; }
+        .stat-label, .kpi-label { color: #a0a0b0; text-transform: uppercase; font-size: 0.8em; font-weight: 600; margin-bottom: 5px; }
+        .stat-value, .kpi-value { color: #f0f0f0; font-weight: bold; font-size: 1.2em; }
+        .kpi-value { font-size: 1.8em; }
+        .refresh-btn { padding: 10px 15px; background: linear-gradient(135deg, #7b4397, #dc2430); color: white; border: none; border-radius: 10px; cursor: pointer; font-weight: bold; transition: all 0.3s ease; }
+        .refresh-btn:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(220, 36, 48, 0.4); }
+        .controls .control-group { display: flex; gap: 20px; align-items: center; flex-wrap: wrap; }
+        .control-item { display: flex; flex-direction: column; gap: 5px; }
+        label { font-weight: 600; color: #c0c0d0; font-size: 0.9em; }
+        select, input { background-color: #2c2c44; border: 1px solid #4a4a6a; color: #f0f0f0; border-radius: 8px; padding: 8px; }
+        .time-buttons { display: flex; gap: 5px; }
+        .time-btn { background-color: #2c2c44; color: #f0f0f0; border: none; border-radius: 6px; padding: 6px 12px; cursor: pointer; transition: background-color 0.2s; }
+        .time-btn.active { background: linear-gradient(135deg, #7b4397, #dc2430); color: white; }
+        .kpi-section { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; }
+        .kpi-card { text-align: center; }
+        .kpi-change { font-size: 1em; font-weight: 600; margin-top: 5px; }
+        .kpi-change.positive { color: #48bb78; }
+        .kpi-change.negative { color: #f56565; }
+        .charts-section { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .chart-wrapper { position: relative; height: 350px; }
+        .connection-status { padding: 8px 15px; border-radius: 20px; font-size: 0.8em; font-weight: bold; color: white; }
+        .connection-status.connected { background: #48bb78; }
+        .connection-status.connecting { background: #f59e0b; }
+        .connection-status.error { background: #f56565; }
+        @media (max-width: 768px) {
+            .dashboard-header, .controls .control-group { flex-direction: column; }
+            .charts-section { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <header class="dashboard-header"><h1>🚀 Krypto Dashboard</h1><div class="header-stats"><div class="stat-item"><div class="stat-value" id="portfolioTotal">€0,00</div><div class="stat-label">Portfolio</div></div><div class="stat-item"><div class="stat-value" id="lastUpdate">-</div><div class="stat-label">Update</div></div><button id="refreshBtn" class="refresh-btn">🔄 Aktualisieren</button></div></header>
+        <section class="controls"><div class="control-group"><div class="control-item"><label for="coinSelect">Coin:</label><select id="coinSelect"></select></div><div class="control-item"><label>Zeitraum:</label><div class="time-buttons"><button class="time-btn" data-days="7">7T</button><button class="time-btn" data-days="30">30T</button><button class="time-btn" data-days="90">90T</button></div></div><div class="control-item"><label>Status:</label><div class="connection-status" id="connectionStatus">...</div></div></div></section>
+        <section class="kpi-section" id="kpi-section"></section>
+        <section class="charts-section"><div class="chart-container"><h3>📈 Preisentwicklung</h3><div class="chart-wrapper"><canvas id="mainChart"></canvas></div></div><div class="chart-container"><h3>💼 Portfolio-Wertentwicklung</h3><div class="chart-wrapper"><canvas id="portfolioChart"></canvas></div></div></section>
+    </div>
+
+    <script>
+        // --- GLOBALE VARIABLEN ---
+        let charts = {};
+        let dashboardData = null;
+        let currentCoin = 'Bitcoin';
+        let currentTimeRange = 30;
+
+        // --- HELFERFUNKTIONEN ---
+        function parseGermanNumber(str) {
+            if (typeof str !== 'string' || !str) return 0;
+            return parseFloat(str.replace(/\./g, '').replace(',', '.')) || 0;
+        }
+
+        function loadUserSettings() {
+            try {
+                const settings = localStorage.getItem('cryptoDashboardSettings');
+                return settings ? JSON.parse(settings) : { sheetId: null, selectedCoin: 'Bitcoin', timeRange: 30 };
+            } catch (e) { return { sheetId: null, selectedCoin: 'Bitcoin', timeRange: 30 }; }
+        }
+
+        function saveUserSettings(settings) {
+            try {
+                localStorage.setItem('cryptoDashboardSettings', JSON.stringify(settings));
+            } catch (e) { console.warn("Einstellungen konnten nicht gespeichert werden."); }
+        }
+        
+        function updateConnectionStatus(status, message) {
+            const statusEl = document.getElementById('connectionStatus');
+            if(statusEl) {
+                statusEl.className = 'connection-status ' + status;
+                statusEl.textContent = message;
+            }
+        }
+
+        // --- DATENLADUNG & VERARBEITUNG ---
+        document.addEventListener('DOMContentLoaded', () => {
+            setupEventListeners();
+            loadDataFromSheet();
+        });
+
+        function loadDataFromSheet() {
+            console.log("Versuche, Daten zu laden...");
+            updateConnectionStatus('connecting', '🔄 Verbinde...');
+            
+            const urlParams = new URLSearchParams(window.location.search);
+            let sheetId = urlParams.get('sheet');
+            const settings = loadUserSettings();
+
+            if (sheetId) {
+                settings.sheetId = sheetId;
+                saveUserSettings(settings);
+                window.history.replaceState({}, document.title, window.location.pathname);
+            } else {
+                sheetId = settings.sheetId;
+            }
+            
+            if (!sheetId) {
+                const msg = "Fehler: Google Sheet ID nicht gefunden. Bitte rufen Sie das Dashboard einmal mit dem 'Magic Link' auf (z.B. .../index.html?sheet=IHRE_ID).";
+                console.error(msg);
+                updateConnectionStatus('error', '❌ ID fehlt');
+                alert(msg);
+                return;
+            }
+
+            const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=0`;
+
+            fetch(csvUrl)
+                .then(response => {
+                    if (!response.ok) throw new Error(`Netzwerkfehler: ${response.statusText}. Ist das Sheet öffentlich freigegeben?`);
+                    return response.text();
+                })
+                .then(csvText => {
+                    if (!csvText) throw new Error("Leere Antwort vom Google Sheet erhalten.");
+                    const parsedData = parseCSV(csvText);
+                    dashboardData = processData(parsedData);
+                    
+                    if (!dashboardData || Object.keys(dashboardData.coins).length === 0) {
+                        throw new Error("Keine gültigen Coin-Daten nach der Verarbeitung gefunden.");
+                    }
+
+                    console.log("Daten erfolgreich verarbeitet:", dashboardData);
+                    updateConnectionStatus('connected', '✅ Verbunden');
+                    initializeUI();
+                })
+                .catch(error => {
+                    console.error("KRITISCHER FEHLER:", error);
+                    updateConnectionStatus('error', `❌ Fehler`);
+                    alert(`Daten konnten nicht geladen werden: ${error.message}`);
+                });
+        }
+
+        function parseCSV(csvText) {
+            const lines = csvText.trim().split('\n');
+            const headers = lines.shift().split(',').map(h => h.trim());
+            return lines.map(line => {
+                const values = line.split(',');
+                let row = {};
+                headers.forEach((header, index) => { row[header] = values[index] ? values[index].trim() : ''; });
+                return row;
+            }).filter(row => row.Coin);
+        }
+
+        function processData(parsedData) {
+            const coins = {};
+            parsedData.forEach(row => {
+                const coinName = row["Coin"];
+                if (!coinName) return;
+                if (!coins[coinName]) coins[coinName] = { data: [] };
+                coins[coinName].data.push(row);
+            });
+
+            let totalPortfolioValue = 0;
+            const portfolioHistoryMap = new Map();
+
+            for (const coinName in coins) {
+                coins[coinName].data.sort((a, b) => new Date(b.Datum) - new Date(a.Datum));
+                const latestEntry = coins[coinName].data[0];
+                if (latestEntry) { totalPortfolioValue += parseGermanNumber(latestEntry.Wert_EUR); }
+                coins[coinName].data.sort((a, b) => new Date(a.Datum) - new Date(b.Datum));
+                
+                coins[coinName].data.forEach(row => {
+                    const dateKey = row.Datum.split(' ')[0];
+                    const wert = parseGermanNumber(row.Wert_EUR);
+                    portfolioHistoryMap.set(dateKey, (portfolioHistoryMap.get(dateKey) || 0) + wert);
+                });
+            }
+
+            const portfolioHistory = Array.from(portfolioHistoryMap.entries())
+                .map(([date, value]) => ({ date, value }))
+                .sort((a, b) => new Date(a.date) - new Date(b.date));
+                
+            console.log(`✅ Verarbeitung abgeschlossen. Finaler Portfolio-Wert: €${totalPortfolioValue.toFixed(2)}`);
+
+            return {
+                coins: coins,
+                last_update: new Date().toISOString(),
+                portfolio_total: totalPortfolioValue,
+                portfolio_history: portfolioHistory
+            };
+        }
+
+        // --- UI INITIALISIERUNG & UPDATES ---
+        function initializeUI() {
+            const settings = loadUserSettings();
+            currentTimeRange = settings.timeRange;
+            updateCoinDropdown(settings);
+            updateDashboard();
+        }
+
+        function setupEventListeners() {
+            document.getElementById('coinSelect').addEventListener('change', (e) => {
+                currentCoin = e.target.value;
+                saveUserSettings({ ...loadUserSettings(), selectedCoin: currentCoin });
+                updateDashboard();
+            });
+
+            document.querySelectorAll('.time-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    currentTimeRange = parseInt(this.dataset.days);
+                    saveUserSettings({ ...loadUserSettings(), timeRange: currentTimeRange });
+                    document.querySelectorAll('.time-btn').forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                    updateDashboard();
+                });
+            });
+            document.getElementById('refreshBtn').addEventListener('click', loadDataFromSheet);
+        }
+
+        function updateCoinDropdown(settings) {
+            const select = document.getElementById('coinSelect');
+            select.innerHTML = '';
+            let selectedCoinExists = false;
+            Object.keys(dashboardData.coins).sort().forEach(coinName => {
+                if(dashboardData.coins[coinName].data.length > 0) {
+                    const option = document.createElement('option');
+                    option.value = coinName;
+                    option.textContent = coinName;
+                    select.appendChild(option);
+                    if (coinName === settings.selectedCoin) selectedCoinExists = true;
+                }
+            });
+            currentCoin = selectedCoinExists ? settings.selectedCoin : Object.keys(dashboardData.coins)[0];
+            if(currentCoin) select.value = currentCoin;
+            document.querySelectorAll('.time-btn').forEach(b => b.classList.toggle('active', parseInt(b.dataset.days) === settings.timeRange));
+        }
+
+        function updateDashboard() {
+            if (!dashboardData || !dashboardData.coins[currentCoin]) {
+                console.error("Keine Daten zum Anzeigen für Coin:", currentCoin);
+                return;
+            };
+            
+            document.getElementById('portfolioTotal').textContent = '€' + dashboardData.portfolio_total.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            document.getElementById('lastUpdate').textContent = new Date(dashboardData.last_update).toLocaleTimeString('de-DE');
+            
+            updateKPIs();
+            updateCharts();
+        }
+
+        function updateKPIs() {
+            const coinData = dashboardData.coins[currentCoin].data;
+            const latest = coinData[coinData.length - 1];
+            if (!latest) return;
+            
+            const kpiContainer = document.getElementById('kpi-section');
+            const rsi = parseFloat(latest.RSI);
+            let rsiStatus = "neutral";
+            if (rsi > 70) rsiStatus = "negative";
+            if (rsi < 30) rsiStatus = "positive";
+            
+            kpiContainer.innerHTML = `
+                <div class="kpi-card"><div class="kpi-label">Preis</div><div class="kpi-value">€${parseGermanNumber(latest.Preis_EUR).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}</div></div>
+                <div class="kpi-card"><div class="kpi-label">RSI</div><div class="kpi-value">${rsi.toFixed(1)}</div><div class="kpi-change ${rsiStatus}">${rsi > 70 ? 'Überkauft' : rsi < 30 ? 'Überverkauft' : 'Neutral'}</div></div>
+                <div class="kpi-card"><div class="kpi-label">Bestand</div><div class="kpi-value">${parseGermanNumber(latest.Bestand).toFixed(4)}</div></div>
+                <div class="kpi-card"><div class="kpi-label">Wert</div><div class="kpi-value">€${parseGermanNumber(latest.Wert_EUR).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div></div>
+            `;
+        }
+
+        function updateCharts() {
+            updateMainChart();
+            updatePortfolioChart();
+        }
+        
+        function updateMainChart() {
+            const ctx = document.getElementById('mainChart').getContext('2d');
+            if (charts.main) charts.main.destroy();
+            
+            const coin = dashboardData.coins[currentCoin];
+            const sliceIndex = Math.max(0, coin.data.length - currentTimeRange);
+            
+            charts.main = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: coin.data.slice(sliceIndex).map(r => new Date(r.Datum).toLocaleDateString('de-DE')),
+                    datasets: [{
+                        label: 'Preis (€)',
+                        data: coin.data.slice(sliceIndex).map(r => parseGermanNumber(r.Preis_EUR)),
+                        borderColor: '#667eea', tension: 0.1, fill: true, backgroundColor: 'rgba(102, 126, 234, 0.1)'
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+        }
+        
+        function updatePortfolioChart() {
+            const ctx = document.getElementById('portfolioChart').getContext('2d');
+            if (charts.portfolio) charts.portfolio.destroy();
+
+            const sliceIndex = Math.max(0, dashboardData.portfolio_history.length - currentTimeRange);
+
+            charts.portfolio = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: dashboardData.portfolio_history.slice(sliceIndex).map(h => new Date(h.date).toLocaleDateString('de-DE')),
+                    datasets: [{
+                        label: 'Portfolio-Wert (€)',
+                        data: dashboardData.portfolio_history.slice(sliceIndex).map(h => h.value),
+                        borderColor: '#8b5cf6', tension: 0.1, fill: true, backgroundColor: 'rgba(139, 92, 246, 0.1)'
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+        }
+    </script>
+</body>
+</html>
