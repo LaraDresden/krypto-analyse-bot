@@ -731,7 +731,7 @@ def get_bitvavo_data(bitvavo: ccxt.bitvavo, coin_name: str, symbol: str) -> Dict
         print(f"[{coin_name}] Starte erweiterte Marktdatenanalyse für {markt_symbol}...")
         
         # Reduziertes Rate Limiting für parallele Ausführung
-        time.sleep(TECHNICAL_CONFIG['rate_limit_delay'])  # Statt 1.5s - ThreadPoolExecutor verteilt Requests automatisch
+        time.sleep(API_CONFIG['rate_limit_delay'])  # Statt 1.5s - ThreadPoolExecutor verteilt Requests automatisch
         
         # Bitvavo API-Call mit Timeout
         bitvavo.timeout = API_CONFIG['bitvavo_timeout'] * 1000  # ccxt erwartet Millisekunden
