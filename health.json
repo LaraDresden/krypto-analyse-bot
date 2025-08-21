@@ -1,0 +1,12 @@
+{
+  "timestamp": "2025-08-22T01:10:25.467789",
+  "success": false,
+  "coins_analyzed": 0,
+  "portfolio_value": 0,
+  "error_message": "API-Schlüssel fehlen",
+  "version": "2.0.0",
+  "system_info": {
+    "python_version": "3.13.7",
+    "platform": "win32"
+  }
+}

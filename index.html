@@ -778,7 +778,7 @@
         // 2. Datei -> Freigeben -> Im Web veröffentlichen
         // 3. Gesamtes Dokument als "Kommagetrennte Werte (.csv)" veröffentlichen
         // 4. Den generierten Link hier einfügen.
-        const GOOGLE_SHEET_CSV_URL = "IHRE_GOOGLE_SHEET_CSV_EXPORT_URL_HIER_EINFUEGEN";
+        const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSYYkwq1mxi-jgRjCHR_HhBk-F7IFjC5raJMwSCGbxM6HQofVDhDdOGBx_eufJNmTJwgaYBzhC64WFv/pub?output=csv";
 
         // === DOM ELEMENT CACHING FÜR PERFORMANCE ===
         let DOM = {}; // Wird in initializeDOM() gefüllt
@@ -960,7 +960,9 @@
             log('📋 Gefilterte Zeilen:', lines.length);
             
             if (lines.length < 2) {
-                throw new Error(`Zu wenige CSV-Zeilen: ${lines.length}. Mindestens 2 erwartet (Header + Daten).`);
+                console.warn(`⚠️ Google Sheet ist leer oder hat nur Header (${lines.length} Zeilen)`);
+                console.log('🎮 Lade Demo-Daten wegen leerem Google Sheet...');
+                throw new Error('EMPTY_SHEET'); // Spezieller Fehler-Code für leeres Sheet
             }
             
             const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
@@ -1314,27 +1316,22 @@
             console.log('🔍 DIREKTE VERBINDUNG - Konfigurierte URL:', sheetUrl);
             
             // Prüfe ob URL konfiguriert ist
-            if (!sheetUrl || sheetUrl === "IHRE_GOOGLE_SHEET_CSV_EXPORT_URL_HIER_EINFUEGEN") {
-                console.error('❌ FEHLER: Google Sheets URL nicht konfiguriert!');
-                console.error('💡 LÖSUNG: Tragen Sie Ihre echte CSV-Export-URL ein (Format: https://docs.google.com/spreadsheets/d/e/.../pub?output=csv)');
-                updateConnectionStatus('error', '❌ URL nicht konfiguriert');
-                // Zeige Fehler im Dashboard statt alert()
-                document.body.innerHTML = `
-                    <div style="max-width: 600px; margin: 50px auto; padding: 20px; background: #fee; border: 2px solid #f56565; border-radius: 10px; text-align: center; font-family: Arial, sans-serif;">
-                        <h2 style="color: #c53030;">⚠️ Konfigurationsfehler</h2>
-                        <p><strong>Google Sheets URL ist nicht konfiguriert!</strong></p>
-                        <p>Bitte tragen Sie in <code>index.html</code> (Zeile ~781) Ihre echte CSV-Export-URL ein.</p>
-                        <details style="margin-top: 15px; text-align: left;">
-                            <summary style="cursor: pointer; font-weight: bold;">📖 So gehen Sie vor:</summary>
-                            <ol style="margin-top: 10px;">
-                                <li>Google Sheet öffnen</li>
-                                <li>Datei → Freigeben → Im Web veröffentlichen</li>
-                                <li>Gesamtes Dokument als "Kommagetrennte Werte (.csv)" veröffentlichen</li>
-                                <li>URL kopieren und in <code>GOOGLE_SHEET_CSV_URL</code> einfügen</li>
-                            </ol>
-                        </details>
+            if (!sheetUrl || sheetUrl === "IHRE_GOOGLE_SHEET_CSV_EXPORT_URL_HIER_EINFUEGEN" || sheetUrl === "") {
+                console.warn('⚠️ Keine Google Sheets URL konfiguriert - verwende Demo-Daten');
+                updateConnectionStatus('warning', '🧪 Demo-Modus');
+                
+                // Zeige Info-Banner statt Fehlerseite
+                const infoBanner = document.createElement('div');
+                infoBanner.innerHTML = `
+                    <div style="background: #fff3cd; border: 2px solid #ffc107; border-radius: 8px; padding: 15px; margin: 20px; text-align: center; color: #856404;">
+                        <strong>🧪 Demo-Modus aktiv:</strong> Verwende Beispiel-Daten da keine Google Sheets URL konfiguriert ist. 
+                        <button onclick="this.parentElement.parentElement.remove();" style="background: none; border: none; color: #856404; text-decoration: underline; cursor: pointer; margin-left: 10px;">❌ Schließen</button>
                     </div>
                 `;
+                document.body.insertBefore(infoBanner, document.body.firstChild);
+                
+                // Verwende Demo-Daten
+                loadDemoData();
                 return;
             }
             
@@ -1342,7 +1339,29 @@
             updateConnectionStatus('connecting', '🔄 Verbinde mit Google Sheets...');
             console.log('📡 Starte direkten Fetch...');
             
-            fetch(sheetUrl)
+            // Alternative CORS-freie URLs für Google Sheets
+            let finalUrl = sheetUrl;
+            
+            // Wenn die URL ein /pub?output=csv enthält, versuche alternative Formate
+            if (sheetUrl.includes('/pub?output=csv')) {
+                // Extrahiere die Sheet-ID aus der URL
+                const match = sheetUrl.match(/\/spreadsheets\/d\/e\/(.*?)\/pub/);
+                if (match) {
+                    const sheetId = match[1];
+                    // Verwende direkten CSV-Export (oft CORS-freundlicher)
+                    finalUrl = `https://docs.google.com/spreadsheets/d/e/${sheetId}/pub?output=csv&gid=0`;
+                }
+            }
+            
+            console.log('📡 Finale URL:', finalUrl);
+            
+            fetch(finalUrl, {
+                mode: 'cors',
+                cache: 'no-cache',
+                headers: {
+                    'Accept': 'text/csv,text/plain,*/*',
+                }
+            })
                 .then(response => {
                     console.log('📡 Response erhalten:', response.status, response.statusText);
                     if (!response.ok) {
@@ -1355,14 +1374,14 @@
                     console.log('📋 Erste 500 Zeichen:', csvData.substring(0, 500));
                     
                     if (!csvData || csvData.trim() === '') {
-                        throw new Error('Leere CSV-Daten erhalten');
+                        throw new Error('EMPTY_SHEET');
                     }
                     
                     const data = parseCSVData(csvData);
                     console.log('🔄 Parsed Data:', data.length, 'Zeilen');
                     
                     if (data.length === 0) {
-                        throw new Error('Keine gültigen Daten nach CSV-Parsing');
+                        throw new Error('EMPTY_SHEET');
                     }
                     
                     dashboardData = processSheetData(data);
@@ -1381,21 +1400,123 @@
                     
                 })
                 .catch(error => {
-                    console.error('❌ KRITISCHER FEHLER beim Laden der Google Sheets:', error);
-                    updateConnectionStatus('error', `❌ Fehler: ${error.message}`);
+                    console.error('❌ Erster Versuch fehlgeschlagen:', error);
+                    console.log('🔄 Versuche Fallback mit CORS-Proxy...');
                     
-                    // ZEIGE DEN FEHLER PROMINENT AN
-                    alert(`FEHLER beim Laden der Google Sheets Daten:\n\n${error.message}\n\nÜberprüfen Sie:\n1. Ist das Google Sheet öffentlich zugänglich?\n2. Ist die URL korrekt?\n3. Öffnen Sie die Entwicklerkonsole (F12) für Details.`);
+                    // Fallback: Verwende allorigins.win CORS-Proxy
+                    const corsProxy = 'https://api.allorigins.win/get?url=';
+                    const fallbackUrl = corsProxy + encodeURIComponent(sheetUrl);
                     
-                    // KEIN FALLBACK AUF DEMO - BENUTZER SOLL PROBLEM SEHEN
+                    return fetch(fallbackUrl)
+                        .then(response => {
+                            if (!response.ok) {
+                                throw new Error(`CORS-Proxy Fehler: ${response.status}`);
+                            }
+                            return response.json();
+                        })
+                        .then(data => {
+                            if (!data.contents) {
+                                throw new Error('Keine Daten vom CORS-Proxy erhalten');
+                            }
+                            
+                            console.log('📋 CSV-Daten über CORS-Proxy empfangen:', data.contents.length, 'Zeichen');
+                            
+                            const csvData = data.contents;
+                            const parsedData = parseCSVData(csvData);
+                            console.log('🔄 Parsed Data:', parsedData.length, 'Zeilen');
+                            
+                            if (parsedData.length === 0) {
+                                throw new Error('Keine gültigen Daten nach CSV-Parsing');
+                            }
+                            
+                            dashboardData = processSheetData(parsedData);
+                            console.log('📊 Dashboard Data verarbeitet:', Object.keys(dashboardData.coins).length, 'Coins');
+                            
+                            if (Object.keys(dashboardData.coins).length === 0) {
+                                throw new Error('Keine Coins nach Datenverarbeitung gefunden');
+                            }
+                            
+                            updateConnectionStatus('connected', '✅ Daten über CORS-Proxy geladen');
+                            initializeUI();
+                            updateDashboard();
+                            
+                            console.log('✅ ERFOLG: Daten über Fallback geladen!');
+                        })
+                        .catch(fallbackError => {
+                            console.error('❌ Auch CORS-Proxy fehlgeschlagen:', fallbackError);
+                            updateConnectionStatus('error', `❌ Alle Versuche fehlgeschlagen`);
+                            
+                            // Zeige detaillierte Fehlermeldung
+                            const errorMsg = `FEHLER beim Laden der Google Sheets Daten:
+
+🔴 Direkter Zugriff: ${error.message}
+🔴 CORS-Proxy: ${fallbackError.message}
+
+💡 Lösungsvorschläge:
+1. Überprüfen Sie, ob das Google Sheet öffentlich ist
+2. Testen Sie die URL direkt im Browser
+3. Öffnen Sie die Entwicklerkonsole (F12) für Details
+4. Verwenden Sie einen lokalen Server (python -m http.server)
+
+Für Demo-Zwecke werden jetzt Beispieldaten geladen.`;
+
+                            alert(errorMsg);
+                            
+                            // Fallback auf Demo-Daten
+                            console.log('🎮 Fallback auf Demo-Daten...');
+                            loadDemoData();
+                        });
                 });
         }
 
         function loadDemoData() {
-            console.log('🎮 Demo-Daten werden NICHT mehr verwendet!');
-            updateConnectionStatus('error', '❌ Echte Daten erforderlich');
+            console.log('🎮 Lade erweiterte Demo-Daten für lokale Tests...');
+            updateConnectionStatus('connected', '🎮 Erweiterte Demo-Daten geladen');
             
-            alert('HINWEIS: Demo-Modus wurde deaktiviert!\n\nDas Dashboard lädt nur noch echte Daten aus Google Sheets.\nWenn Sie diesen Fehler sehen, überprüfen Sie bitte Ihre Google Sheets Konfiguration.');
+            // Verwende realistische CSV Demo-Daten
+            const demoCSV = `timestamp,coin,current_price,price_change_24h,price_change_7d,volume_24h,market_cap,fear_greed_index,rsi,macd_signal,bb_position,support_level,resistance_level,atr,stoch_k,stoch_d,williams_r,news_sentiment,ai_recommendation,strategy_signal,confidence_score,stop_loss,take_profit,portfolio_weight,portfolio_value
+2025-08-22T01:14:02.881878,Bitcoin,44039.0941,-7.61,0.21,1192361901,33501590806012,50,36.73,HOLD,0.384,40526.3295,45203.1574,1601.8605,38.51,38.24,-48.79,Bullish,Hold,BUY,0.676,40244.2864,46770.8976,11.25,38593.83
+2025-08-22T01:09:02.881878,Ethereum,2893.4466,-5.74,-9.80,1164139490,2380407222531,51,52.84,BUY,0.275,2807.1226,3117.1194,164.6456,75.14,80.01,-41.94,Bullish,Buy,SELL,0.774,2621.6402,3293.5265,20.87,7185.52
+2025-08-22T01:04:02.881878,Binance Coin,294.7483,10.68,6.12,13047381742,220297363806,57,51.28,BUY,0.610,275.8264,311.4755,14.5871,73.09,72.33,-49.21,Bullish,Buy,BUY,0.911,279.4069,318.9407,7.15,6630.10
+2025-08-22T00:59:02.881878,Cardano,0.4842,-4.86,13.45,5240945703,126468193,84,38.26,SELL,0.614,0.4485,0.4944,0.0140,76.69,78.64,-79.44,Bearish,Sell,SELL,0.823,0.4525,0.5149,24.59,36153.74
+2025-08-22T00:54:02.881878,Solana,91.8234,3.45,18.92,7856234567,3456789123456,72,65.41,BUY,0.567,84.2156,96.8901,4.7832,62.34,67.89,-35.67,Bullish,Strong Buy,BUY,0.889,86.7821,99.5967,15.43,12876.45
+2025-08-22T00:49:02.881878,Polkadot,7.3456,-2.18,8.76,987654321,987654321098,63,45.23,HOLD,0.423,6.9832,7.7234,0.2876,48.92,52.14,-58.34,Neutral,Hold,HOLD,0.745,6.7845,7.8923,9.87,5432.10
+2025-08-22T00:44:02.881878,Chainlink,14.9876,6.23,-3.45,2345678901,1234567890123,58,58.76,BUY,0.689,14.1234,15.7892,0.8945,67.45,63.21,-42.89,Bullish,Buy,BUY,0.812,13.9876,16.2345,12.34,8765.43
+2025-08-22T00:39:02.881878,Polygon,0.7634,-8.91,12.34,4567890123,5678901234567,45,28.97,SELL,0.234,0.7123,0.8234,0.0456,31.23,29.87,-73.45,Bearish,Sell,SELL,0.634,0.7012,0.8123,8.76,3456.78
+2025-08-22T00:34:02.881878,Dogecoin,0.0845,15.23,-2.45,987123456,12345678901234,68,72.14,BUY,0.723,0.0789,0.0891,0.0089,69.45,71.23,-28.67,Very Bullish,Speculative Buy,BUY,0.756,0.0798,0.0923,5.67,2134.56
+2025-08-22T00:29:02.881878,XRP,0.5234,-3.12,8.91,3456789012,23456789012345,55,48.76,HOLD,0.456,0.4987,0.5489,0.0234,51.23,49.87,-52.34,Neutral,Hold,HOLD,0.689,0.4923,0.5678,7.89,4567.89`;
+
+            try {
+                // Parse die CSV Demo-Daten wie echte Google Sheets Daten
+                const demoData = parseCSVData(demoCSV);
+                console.log('✅ Erweiterte Demo-Daten erfolgreich geladen:', demoData.length, 'Einträge');
+                
+                // Setze die globalen Daten
+                currentData = demoData;
+                
+                // Verarbeite die Daten wie normale API-Daten
+                processMarketData(demoData);
+                
+                // Zeige Erfolgsmeldung
+                setTimeout(() => {
+                    const coinCount = [...new Set(demoData.map(item => item.coin))].length;
+                    updateConnectionStatus('demo', `🎮 ${coinCount} Demo-Coins erfolgreich geladen`);
+                    
+                    // Initialisiere UI falls nötig
+                    if (!document.getElementById('coinSelect').options.length) {
+                        initializeUI();
+                    }
+                    updateDashboard();
+                }, 500);
+                
+            } catch (error) {
+                console.error('❌ Fehler beim Laden der erweiterten Demo-Daten:', error);
+                // Fallback zu alter Demo-Daten-Methode
+                console.log('🔄 Fallback zu Standard-Demo-Daten...');
+                const fallbackData = generateDemoData();
+                processMarketData(fallbackData);
+                updateConnectionStatus('demo', '🎮 Standard Demo-Daten geladen');
+            }
         }
 
         // === UI FUNKTIONEN ===
