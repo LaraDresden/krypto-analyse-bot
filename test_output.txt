@@ -1,0 +1,34 @@
+======================================================================
+ERROR: test_market_crash_scenario (tests.test_edge_cases.TestEdgeCases.test_market_crash_scenario)
+Test: Verhalten bei Market Crash (-40% in kurzer Zeit).
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Anwender\Clone\Krypto\krypto-analyse-bot\tests\test_edge_cases.py", line 185, in test_market_crash_scenario
+    simulator.process_signal("BTC", pre_crash_data["BTC"], btc_signal, conservative.name)
+    ^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'PortfolioSimulator' object has no attribute 'process_signal'
+
+======================================================================
+ERROR: test_stop_loss_trigger (tests.test_edge_cases.TestEdgeCases.test_stop_loss_trigger)
+Test: Stop-Loss sollte korrekt ausgelöst werden.
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Anwender\Clone\Krypto\krypto-analyse-bot\tests\test_edge_cases.py", line 107, in test_stop_loss_trigger
+    result = simulator.process_signal("BTC", entry_data, buy_signal, strategy.name)
+             ^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'PortfolioSimulator' object has no attribute 'process_signal'
+
+======================================================================
+ERROR: test_take_profit_trigger (tests.test_edge_cases.TestEdgeCases.test_take_profit_trigger)
+Test: Take-Profit sollte Gewinn realisieren.
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Anwender\Clone\Krypto\krypto-analyse-bot\tests\test_edge_cases.py", line 140, in test_take_profit_trigger
+    simulator.process_signal("ETH", entry_data, buy_signal, strategy.name)
+    ^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'PortfolioSimulator' object has no attribute 'process_signal'
+
+----------------------------------------------------------------------
+Ran 7 tests in 0.008s
+
+FAILED (errors=3)
