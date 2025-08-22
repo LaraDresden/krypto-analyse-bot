@@ -1,20 +1,10 @@
 #!/usr/bin/env python3
 """
-📊 Trading Strategy Performance Tracker
-========================================
+📊 Trading Strategy Performance Tracker - DEMO VERSION
+=====================================================
 
-Analysiert die Erfolgsrate der Trading-Empfehlungen aus der Google Sheets Datenbank.
-Dieses Skript evaluiert:
-
-1. Erfolgsrate von BUY/SELL/HOLD Signalen
-2. ROI (Return on Investment) pro Signal
-3. Präzision und Recall der Strategien
-4. Zeitbasierte Performance-Analyse
-5. Risiko-adjustierte Returns
-
-Autor: AI Assistant
-Datum: 2025-08-22
-Version: 1.0
+Demo-Version für lokale Tests ohne Google Sheets Verbindung.
+Verwendet demo_trading_data.json für Testzwecke.
 """
 
 import os
@@ -22,16 +12,11 @@ import sys
 import json
 import pandas as pd
 import numpy as np
-import gspread
 from datetime import datetime, timedelta
 from typing import Dict, List, Tuple, Optional
 import matplotlib.pyplot as plt
 import seaborn as sns
 from dataclasses import dataclass
-from dotenv import load_dotenv
-
-# .env Datei laden
-load_dotenv()
 
 @dataclass
 class TradingSignalResult:
@@ -48,36 +33,31 @@ class TradingSignalResult:
     strategy_name: str
     reasoning: str
     
-class PerformanceTracker:
-    """Analysiert Trading-Signal Performance aus Google Sheets"""
+class PerformanceTrackerDemo:
+    """Demo-Version des Performance Trackers mit lokalen Daten"""
     
     def __init__(self):
         self.sheet_data = None
         self.processed_signals = []
         self.performance_summary = {}
         
-    def load_data_from_sheets(self) -> bool:
-        """Lädt Daten aus Google Sheets"""
+    def load_demo_data(self) -> bool:
+        """Lädt Demo-Daten aus JSON-Datei"""
         try:
-            credentials_json_str = os.getenv('GOOGLE_CREDENTIALS')
-            if not credentials_json_str:
-                print("❌ GOOGLE_CREDENTIALS nicht in .env gefunden!")
+            if not os.path.exists('demo_trading_data.json'):
+                print("❌ Demo-Daten nicht gefunden! Führen Sie zuerst create_demo_data.py aus.")
                 return False
                 
-            credentials_dict = json.loads(credentials_json_str)
-            gc = gspread.service_account_from_dict(credentials_dict)
-            spreadsheet = gc.open("Krypto-Analyse-DB")
-            worksheet = spreadsheet.worksheet("Market_Data")
+            with open('demo_trading_data.json', 'r', encoding='utf-8') as f:
+                demo_data = json.load(f)
             
-            # Alle Daten laden
-            all_records = worksheet.get_all_records()
-            self.sheet_data = pd.DataFrame(all_records)
+            self.sheet_data = pd.DataFrame(demo_data)
             
-            print(f"✅ {len(self.sheet_data)} Datensätze aus Google Sheets geladen")
+            print(f"✅ {len(self.sheet_data)} Demo-Datensätze geladen")
             return True
             
         except Exception as e:
-            print(f"❌ Fehler beim Laden der Google Sheets: {e}")
+            print(f"❌ Fehler beim Laden der Demo-Daten: {e}")
             return False
     
     def analyze_signals(self) -> List[TradingSignalResult]:
@@ -88,9 +68,9 @@ class PerformanceTracker:
         
         # Filtere nur Zeilen mit Trading-Signalen
         signal_data = self.sheet_data[
-            (self.sheet_data.get('Strategy_Signal', '').notna()) & 
-            (self.sheet_data.get('Strategy_Signal', '') != '') &
-            (self.sheet_data.get('Strategy_Signal', '') != 'HOLD')
+            (self.sheet_data['Strategy_Signal'].notna()) & 
+            (self.sheet_data['Strategy_Signal'] != '') &
+            (self.sheet_data['Strategy_Signal'] != 'HOLD')
         ].copy()
         
         if signal_data.empty:
@@ -105,53 +85,43 @@ class PerformanceTracker:
         for coin in signal_data['Coin_Name'].unique():
             coin_signals = signal_data[signal_data['Coin_Name'] == coin].copy()
             coin_signals['Zeitstempel'] = pd.to_datetime(coin_signals['Zeitstempel'])
-            coin_signals = coin_signals.sort_values('Zeitstempel')
+            coin_signals['Signal_Timestamp'] = pd.to_datetime(coin_signals['Signal_Timestamp'])
+            coin_signals = coin_signals.sort_values('Signal_Timestamp')
             
             for _, signal_row in coin_signals.iterrows():
                 try:
-                    # Finde das nächste Preisupdate nach dem Signal
-                    signal_time = signal_row['Zeitstempel']
-                    signal_price = float(signal_row['Signal_Price']) if 'Signal_Price' in signal_row else float(signal_row['Preis_EUR'])
+                    signal_time = signal_row['Signal_Timestamp']
+                    signal_price = float(signal_row['Signal_Price'])
+                    current_price = float(signal_row['Preis_EUR'])
+                    current_time = signal_row['Zeitstempel']
                     
-                    # Suche nach späteren Preisdaten für diesen Coin
-                    later_data = self.sheet_data[
-                        (self.sheet_data['Coin_Name'] == coin) &
-                        (pd.to_datetime(self.sheet_data['Zeitstempel']) > signal_time)
-                    ].copy()
+                    # Berechne ROI basierend auf Signal-Typ
+                    signal_type = signal_row['Strategy_Signal']
+                    if signal_type == 'BUY':
+                        roi_percent = ((current_price - signal_price) / signal_price) * 100
+                    elif signal_type == 'SELL':
+                        roi_percent = ((signal_price - current_price) / signal_price) * 100
+                    else:  # HOLD
+                        roi_percent = 0.0
                     
-                    if not later_data.empty:
-                        # Nehme den neuesten verfügbaren Preis
-                        latest_data = later_data.sort_values('Zeitstempel').iloc[-1]
-                        current_price = float(latest_data['Preis_EUR'])
-                        current_time = pd.to_datetime(latest_data['Zeitstempel'])
-                        
-                        # Berechne ROI basierend auf Signal-Typ
-                        signal_type = signal_row['Strategy_Signal']
-                        if signal_type == 'BUY':
-                            roi_percent = ((current_price - signal_price) / signal_price) * 100
-                        elif signal_type == 'SELL':
-                            roi_percent = ((signal_price - current_price) / signal_price) * 100
-                        else:  # HOLD
-                            roi_percent = 0.0
-                        
-                        holding_period = (current_time - signal_time).days
-                        
-                        result = TradingSignalResult(
-                            coin=coin,
-                            signal=signal_type,
-                            confidence=float(signal_row.get('Confidence_Score', 0.5)),
-                            signal_price=signal_price,
-                            signal_timestamp=signal_time,
-                            current_price=current_price,
-                            current_timestamp=current_time,
-                            roi_percent=roi_percent,
-                            holding_period_days=holding_period,
-                            strategy_name=signal_row.get('Strategy_Name', 'unknown'),
-                            reasoning=signal_row.get('Strategy_Reasoning', '')
-                        )
-                        
-                        results.append(result)
-                        
+                    holding_period = (current_time - signal_time).days
+                    
+                    result = TradingSignalResult(
+                        coin=coin,
+                        signal=signal_type,
+                        confidence=float(signal_row.get('Confidence_Score', 0.5)),
+                        signal_price=signal_price,
+                        signal_timestamp=signal_time,
+                        current_price=current_price,
+                        current_timestamp=current_time,
+                        roi_percent=roi_percent,
+                        holding_period_days=holding_period,
+                        strategy_name=signal_row.get('Strategy_Name', 'unknown'),
+                        reasoning=signal_row.get('Strategy_Reasoning', '')
+                    )
+                    
+                    results.append(result)
+                    
                 except Exception as e:
                     print(f"⚠️ Fehler bei Signal-Analyse für {coin}: {e}")
                     continue
@@ -303,19 +273,20 @@ class PerformanceTracker:
             'successful': 'sum'
         }).round(2)
         
-        timeframe_analysis['weekly_performance'] = {
-            'best_week': {
-                'period': str(weekly_performance['roi_percent']['sum'].idxmax()),
-                'total_roi': weekly_performance['roi_percent']['sum'].max(),
-                'signals_count': int(weekly_performance['roi_percent']['count'].loc[weekly_performance['roi_percent']['sum'].idxmax()])
-            },
-            'worst_week': {
-                'period': str(weekly_performance['roi_percent']['sum'].idxmin()),
-                'total_roi': weekly_performance['roi_percent']['sum'].min(),
-                'signals_count': int(weekly_performance['roi_percent']['count'].loc[weekly_performance['roi_percent']['sum'].idxmin()])
-            },
-            'average_weekly_roi': weekly_performance['roi_percent']['mean'].mean()
-        }
+        if not weekly_performance.empty:
+            timeframe_analysis['weekly_performance'] = {
+                'best_week': {
+                    'period': str(weekly_performance['roi_percent']['sum'].idxmax()),
+                    'total_roi': weekly_performance['roi_percent']['sum'].max(),
+                    'signals_count': int(weekly_performance['roi_percent']['count'].loc[weekly_performance['roi_percent']['sum'].idxmax()])
+                },
+                'worst_week': {
+                    'period': str(weekly_performance['roi_percent']['sum'].idxmin()),
+                    'total_roi': weekly_performance['roi_percent']['sum'].min(),
+                    'signals_count': int(weekly_performance['roi_percent']['count'].loc[weekly_performance['roi_percent']['sum'].idxmin()])
+                },
+                'average_weekly_roi': weekly_performance['roi_percent']['mean'].mean()
+            }
         
         # Monatliche Performance
         signals_df_sorted['month'] = signals_df_sorted['signal_timestamp'].dt.to_period('M')
@@ -387,8 +358,8 @@ class PerformanceTracker:
         # Erweitere den Report um Zeitframe-Analyse
         enhanced_section = f"""
 
-📊 ERWEITERTE ZEITFRAME-ANALYSE
-{'='*40}
+📊 ERWEITERTE ZEITFRAME-ANALYSE (DEMO)
+{'='*45}
 
 ⏱️ PERFORMANCE NACH HALTEDAUER
 {'='*35}"""
@@ -475,6 +446,14 @@ class PerformanceTracker:
         else:
             enhanced_section += "\n✅ Keine kritischen Performance-Warnungen"
         
+        enhanced_section += f"""
+
+🎯 DEMO-MODUS AKTIV
+{'='*25}
+Diese Analyse basiert auf simulierten Demo-Daten.
+Für Live-Daten konfigurieren Sie Google Sheets Credentials.
+"""
+        
         return basic_report + enhanced_section
     
     def generate_report(self) -> str:
@@ -485,8 +464,8 @@ class PerformanceTracker:
         metrics = self.performance_summary
         
         report = f"""
-📊 TRADING STRATEGY PERFORMANCE REPORT
-{'='*60}
+📊 TRADING STRATEGY PERFORMANCE REPORT (DEMO)
+{'='*65}
 📅 Generiert am: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 
 🎯 GESAMTPERFORMANCE
@@ -517,14 +496,14 @@ class PerformanceTracker:
         # Sortiere Coins nach Gesamt-ROI
         coin_performance = sorted(metrics['by_coin'].items(), key=lambda x: x[1]['total_roi'], reverse=True)
         
-        report += "\n📈 TOP 5 PERFORMER:"
-        for coin, data in coin_performance[:5]:
+        report += "\n📈 TOP PERFORMER:"
+        for coin, data in coin_performance[:3]:
             report += f"""
    • {coin}: {data['total_roi']:+.2f}% ROI ({data['count']} Signale, {data['success_rate']:.1f}% Erfolg)"""
         
-        if len(coin_performance) > 5:
-            report += "\n📉 WORST 3 PERFORMER:"
-            for coin, data in coin_performance[-3:]:
+        if len(coin_performance) > 3:
+            report += "\n📉 WORST PERFORMER:"
+            for coin, data in coin_performance[-2:]:
                 report += f"""
    • {coin}: {data['total_roi']:+.2f}% ROI ({data['count']} Signale, {data['success_rate']:.1f}% Erfolg)"""
         
@@ -569,39 +548,23 @@ class PerformanceTracker:
         
         report += f"""
 
-{'='*60}
-📊 Report Ende
+{'='*65}
+📊 Demo Report Ende
 """
         
         return report
-    
-    def save_report(self, filename: Optional[str] = None) -> str:
-        """Speichert den Report in eine Datei"""
-        if filename is None:
-            filename = f"performance_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
-        
-        report_content = self.generate_report()
-        
-        try:
-            with open(filename, 'w', encoding='utf-8') as f:
-                f.write(report_content)
-            print(f"✅ Performance-Report gespeichert: {filename}")
-            return filename
-        except Exception as e:
-            print(f"❌ Fehler beim Speichern des Reports: {e}")
-            return ""
 
 def main():
-    """Hauptfunktion für Performance-Tracking"""
-    print("🚀 Trading Strategy Performance Tracker")
-    print("=" * 50)
+    """Hauptfunktion für Demo Performance-Tracking"""
+    print("🚀 Trading Strategy Performance Tracker - DEMO VERSION")
+    print("=" * 60)
     
-    tracker = PerformanceTracker()
+    tracker = PerformanceTrackerDemo()
     
-    # Lade Daten
-    print("📡 Lade Daten aus Google Sheets...")
-    if not tracker.load_data_from_sheets():
-        print("❌ Fehler beim Laden der Daten. Script wird beendet.")
+    # Lade Demo-Daten
+    print("📡 Lade Demo-Daten...")
+    if not tracker.load_demo_data():
+        print("❌ Fehler beim Laden der Demo-Daten. Script wird beendet.")
         return
     
     # Analysiere Signale
@@ -610,7 +573,6 @@ def main():
     
     if not signals:
         print("❌ Keine Trading-Signale zum Analysieren gefunden.")
-        print("💡 Tipp: Führen Sie erst den Test_script.py aus, um Trading-Signale zu generieren.")
         return
     
     # Berechne Performance
@@ -623,10 +585,15 @@ def main():
     print(report)
     
     # Speichere Report
-    filename = tracker.save_report()
+    filename = f"demo_performance_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+    try:
+        with open(filename, 'w', encoding='utf-8') as f:
+            f.write(report)
+        print(f"✅ Demo-Report gespeichert: {filename}")
+    except Exception as e:
+        print(f"❌ Fehler beim Speichern: {e}")
     
-    print(f"\n🎉 Performance-Analyse abgeschlossen!")
-    print(f"📄 Report gespeichert als: {filename}")
+    print(f"\n🎉 Demo Performance-Analyse abgeschlossen!")
 
 if __name__ == "__main__":
     main()

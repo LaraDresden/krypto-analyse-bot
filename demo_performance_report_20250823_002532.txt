@@ -1,0 +1,120 @@
+
+📊 TRADING STRATEGY PERFORMANCE REPORT (DEMO)
+=================================================================
+📅 Generiert am: 2025-08-23 00:25:32
+
+🎯 GESAMTPERFORMANCE
+==============================
+📈 Gesamte Signale: 50
+✅ Erfolgreiche Signale: 34
+📊 Erfolgsrate: 68.0%
+💰 Durchschnittlicher ROI: 4.76%
+📈 Gesamt ROI: 238.11%
+⏱️ Durchschnittliche Haltedauer: 0.0 Tage
+
+🎯 PERFORMANCE NACH SIGNAL-TYP
+===================================
+📊 BUY:
+   • Anzahl: 32
+   • Erfolgsrate: 68.8%
+   • Ø ROI: 5.47%
+   • Gesamt ROI: 175.15%
+📊 SELL:
+   • Anzahl: 18
+   • Erfolgsrate: 66.7%
+   • Ø ROI: 3.50%
+   • Gesamt ROI: 62.95%
+
+🪙 TOP/WORST PERFORMING COINS
+===================================
+📈 TOP PERFORMER:
+   • Bitcoin: +79.99% ROI (17 Signale, 70.6% Erfolg)
+   • Solana: +57.26% ROI (6 Signale, 66.7% Erfolg)
+   • Ethereum: +50.08% ROI (14 Signale, 64.3% Erfolg)
+📉 WORST PERFORMER:
+   • BNB: +38.57% ROI (7 Signale, 71.4% Erfolg)
+   • Cardano: +12.20% ROI (6 Signale, 66.7% Erfolg)
+
+🎯 KONFIDENZ-LEVEL ANALYSE
+==============================
+📊 Medium (30-50%):
+   • Anzahl: 19
+   • Erfolgsrate: 63.2%
+   • Ø ROI: 4.30%
+📊 Very High (70-100%):
+   • Anzahl: 10
+   • Erfolgsrate: 60.0%
+   • Ø ROI: 7.60%
+📊 High (50-70%):
+   • Anzahl: 21
+   • Erfolgsrate: 76.2%
+   • Ø ROI: 3.83%
+
+⚠️ RISIKO-ANALYSE
+====================
+🚀 Max Gewinn: 24.24%
+📉 Max Verlust: -13.94%
+📊 Volatilität: 11.33%
+📈 Sharpe Ratio: 0.420
+💪 Gewinn/Verlust Ratio: 1.22
+
+💡 EMPFEHLUNGEN
+====================
+🟡 Solide Performance. Optimierungspotential vorhanden.
+⚠️ Risiko-Rendite-Verhältnis könnte besser sein.
+
+=================================================================
+📊 Demo Report Ende
+
+
+📊 ERWEITERTE ZEITFRAME-ANALYSE (DEMO)
+=============================================
+
+⏱️ PERFORMANCE NACH HALTEDAUER
+===================================
+📈 Kurzfristig (1-7 Tage):
+   • Anzahl Signale: 50
+   • Erfolgsrate: 68.0%
+   • Ø ROI: 4.76%
+   • Gesamt ROI: 238.11%
+   • Ø Haltedauer: 0.0 Tage
+
+📅 WÖCHENTLICHE PERFORMANCE
+==============================
+🏆 Beste Woche: 2025-07-07/2025-07-13 
+   └─ ROI: +58.85% (7 Signale)
+📉 Schlechteste Woche: 2025-06-30/2025-07-06
+   └─ ROI: -0.96% (6 Signale)
+📊 Ø Wöchentliche ROI: 5.27%
+
+📅 MONATLICHE PERFORMANCE
+==============================
+🏆 Bester Monat: 2025-07
+   └─ ROI: +117.33% (30 Signale)
+📉 Schlechtester Monat: 2025-06
+   └─ ROI: +32.28% (4 Signale)
+📊 Ø Monatliche ROI: 5.84%
+
+📈 TREND-ANALYSE
+====================
+🎯 Aktuelle Kumulative ROI: 238.11%
+🚀 Beste Kumulative ROI: 238.11%
+📉 Maximaler Drawdown: -37.20%
+📊 Frühe Performance (Ø): 3.13%
+📊 Aktuelle Performance (Ø): 7.60%
+📈 Trend: VERBESSERND
+
+🏃‍♂️ WIN/LOSS STREAKS
+=========================
+🔥 Längste Gewinnserie: 7 Signale
+❄️ Längste Verlustserie: 3 Signale
+📊 Aktuelle Serie: Win
+
+⚠️ PERFORMANCE-WARNUNGEN
+==============================
+🔴 Hoher Drawdown: -37.2%
+
+🎯 DEMO-MODUS AKTIV
+=========================
+Diese Analyse basiert auf simulierten Demo-Daten.
+Für Live-Daten konfigurieren Sie Google Sheets Credentials.
