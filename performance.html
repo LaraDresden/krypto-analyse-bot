@@ -1,0 +1,878 @@
+<!DOCTYPE html>
+<!--
+    📊 Performance Dashboard - Trading Signal Analysis
+    Zeigt die Erfolgsrate und ROI der Trading-Vorhersagen
+-->
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📊 Performance Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 10px;
+        }
+
+        .dashboard {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        /* Header */
+        .dashboard-header {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 15px 25px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        .dashboard-header h1 {
+            font-size: 2.2em;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .nav-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .nav-btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .nav-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Performance Cards */
+        .performance-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .performance-card {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        .performance-card h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+
+        .metric {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .metric:last-child {
+            border-bottom: none;
+        }
+
+        .metric-value {
+            font-weight: 600;
+            font-size: 1.1em;
+        }
+
+        .metric-value.positive {
+            color: #22c55e;
+        }
+
+        .metric-value.negative {
+            color: #ef4444;
+        }
+
+        .metric-value.neutral {
+            color: #6b7280;
+        }
+
+        /* Chart Container */
+        .chart-container {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+            margin-bottom: 20px;
+        }
+
+        .chart-container h3 {
+            color: #333;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .chart-wrapper {
+            position: relative;
+            height: 400px;
+        }
+
+        /* Loading State */
+        .loading {
+            text-align: center;
+            padding: 50px;
+            color: #666;
+        }
+
+        .loading::after {
+            content: '';
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #667eea;
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: spin 1s ease-in-out infinite;
+            margin-left: 10px;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Status Indicator */
+        .status-indicator {
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: 600;
+        }
+
+        .status-live {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .status-demo {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        /* Info Bar */
+        .info-bar {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 20px;
+            background: rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-size: 0.9em;
+            color: white;
+        }
+
+        /* Data Legend Footer */
+        .data-legend {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 20px 25px;
+            border-radius: 15px;
+            margin-top: 20px;
+            color: #333;
+        }
+
+        .data-legend h4 {
+            margin-bottom: 10px;
+        }
+
+        .data-legend ul {
+            list-style-position: inside;
+            padding-left: 5px;
+        }
+
+        .data-legend li {
+            margin-bottom: 5px;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .dashboard-header {
+                flex-direction: column;
+                gap: 15px;
+            }
+
+            .performance-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .nav-buttons {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <!-- Header -->
+        <header class="dashboard-header">
+            <h1>📊 Performance Dashboard</h1>
+            <div class="nav-buttons">
+                <a href="index.html" class="nav-btn">🏠 Zurück zum Dashboard</a>
+                <span id="connectionStatus" class="status-indicator status-demo">🎮 Demo-Modus</span>
+            </div>
+        </header>
+
+        <!-- Data Info Bar -->
+        <div class="info-bar">
+            <span id="dataSourceInfo"></span>
+            <span id="lastUpdatedInfo"></span>
+        </div>
+
+        <!-- Performance Overview -->
+        <div class="performance-grid">
+            <!-- Gesamtperformance -->
+            <div class="performance-card">
+                <h3>🎯 Gesamtperformance</h3>
+                <div class="metric">
+                    <span>Gesamte Signale:</span>
+                    <span class="metric-value" id="totalSignals">-</span>
+                </div>
+                <div class="metric">
+                    <span>Erfolgreiche Signale:</span>
+                    <span class="metric-value positive" id="successfulSignals">-</span>
+                </div>
+                <div class="metric">
+                    <span>Erfolgsrate:</span>
+                    <span class="metric-value" id="successRate">-</span>
+                </div>
+                <div class="metric">
+                    <span>Durchschnittlicher ROI:</span>
+                    <span class="metric-value" id="avgROI">-</span>
+                </div>
+                <div class="metric">
+                    <span>Gesamt ROI:</span>
+                    <span class="metric-value" id="totalROI">-</span>
+                </div>
+            </div>
+
+            <!-- Signal Performance -->
+            <div class="performance-card">
+                <h3>📈 Signal Performance</h3>
+                <div class="metric">
+                    <span>BUY Signale:</span>
+                    <span class="metric-value" id="buyPerformance">-</span>
+                </div>
+                <div class="metric">
+                    <span>SELL Signale:</span>
+                    <span class="metric-value" id="sellPerformance">-</span>
+                </div>
+                <div class="metric">
+                    <span>Beste Coin:</span>
+                    <span class="metric-value positive" id="bestCoin">-</span>
+                </div>
+                <div class="metric">
+                    <span>Schlechteste Coin:</span>
+                    <span class="metric-value negative" id="worstCoin">-</span>
+                </div>
+            </div>
+
+            <!-- Zeitframe Analyse -->
+            <div class="performance-card">
+                <h3>⏱️ Zeitframe Analyse</h3>
+                <div class="metric">
+                    <span>Kurzfristig (1-7 Tage):</span>
+                    <span class="metric-value" id="shortTermPerf">-</span>
+                </div>
+                <div class="metric">
+                    <span>Mittelfristig (8-30 Tage):</span>
+                    <span class="metric-value" id="mediumTermPerf">-</span>
+                </div>
+                <div class="metric">
+                    <span>Langfristig (31+ Tage):</span>
+                    <span class="metric-value" id="longTermPerf">-</span>
+                </div>
+                <div class="metric">
+                    <span>Beste Woche:</span>
+                    <span class="metric-value positive" id="bestWeek">-</span>
+                </div>
+            </div>
+
+            <!-- Risiko Metriken -->
+            <div class="performance-card">
+                <h3>⚠️ Risiko Analyse</h3>
+                <div class="metric">
+                    <span>Max Gewinn:</span>
+                    <span class="metric-value positive" id="maxGain">-</span>
+                </div>
+                <div class="metric">
+                    <span>Max Verlust:</span>
+                    <span class="metric-value negative" id="maxLoss">-</span>
+                </div>
+                <div class="metric">
+                    <span>Volatilität:</span>
+                    <span class="metric-value neutral" id="volatility">-</span>
+                </div>
+                <div class="metric">
+                    <span>Sharpe Ratio:</span>
+                    <span class="metric-value" id="sharpeRatio">-</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts -->
+        <div class="chart-container">
+            <h3>📊 ROI Entwicklung über Zeit</h3>
+            <div class="chart-wrapper">
+                <canvas id="roiChart"></canvas>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <h3>🎯 Erfolgsrate nach Coin</h3>
+            <div class="chart-wrapper">
+                <canvas id="coinChart"></canvas>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <h3>⏱️ Performance nach Zeiträumen</h3>
+            <div class="chart-wrapper">
+                <canvas id="timeframeChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Data Mapping Legend -->
+        <footer class="data-legend">
+            <h4>🔍 Datenzuordnung</h4>
+            <p>Die Analyse verwendet die folgenden Spalten aus der Datenquelle (falls vorhanden):</p>
+            <ul>
+                <li><strong>Coin:</strong> <span id="mapCoin">Wird ermittelt...</span></li>
+                <li><strong>ROI:</strong> <span id="mapROI">Wird ermittelt...</span></li>
+                <li><strong>Zeitstempel:</strong> <span id="mapTimestamp">Wird ermittelt...</span></li>
+            </ul>
+        </footer>
+    </div>
+
+    <script>
+        // === KONFIGURATION ===
+        const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/1-EVE79kI8V9kgeZCYXo63WNKMnuJHYDRs9LmGUFZqgo/export?format=csv";
+        
+        // === GLOBALE VARIABLEN ===
+        let performanceData = null;
+        let chartInstances = {};
+
+        // === PERFORMANCE DATEN LADEN ===
+        async function loadPerformanceData() {
+            console.log('📡 Lade Performance-Daten...');
+            
+            try {
+                // Versuche Live-Daten zu laden
+                if (GOOGLE_SHEET_CSV_URL) {
+                    const response = await fetch(GOOGLE_SHEET_CSV_URL);
+                    if (response.ok) {
+                        const csvText = await response.text();
+                        const data = parseCSVData(csvText);
+                        if (data && data.length > 0) {
+                            performanceData = analyzePerformanceData(data);
+                            document.getElementById('connectionStatus').textContent = '✅ Live-Daten';
+                            document.getElementById('connectionStatus').className = 'status-indicator status-live';
+                            updatePerformanceDisplay();
+                            return;
+                        }
+                    }
+                }
+            } catch (error) {
+                console.log('⚠️ Fehler beim Laden der Live-Daten:', error);
+            }
+            
+            // Fallback zu Demo-Daten
+            console.log('🎮 Lade Demo-Performance-Daten...');
+            performanceData = getDemoPerformanceData();
+            document.getElementById('connectionStatus').textContent = '🎮 Demo-Modus';
+            document.getElementById('connectionStatus').className = 'status-indicator status-demo';
+            updatePerformanceDisplay();
+        }
+
+        // === CSV PARSING ===
+        function parseCSVData(csvText) {
+            // Robustes CSV-Parsing mit PapaParse (unterstützt Quotes/Kommas/Zeilenumbrüche)
+            const result = Papa.parse(csvText, {
+                header: true,
+                dynamicTyping: false,
+                skipEmptyLines: true
+            });
+            return Array.isArray(result.data) ? result.data : [];
+        }
+
+        // === PERFORMANCE ANALYSE ===
+        function analyzePerformanceData(data) {
+            const toNum = (v) => {
+                if (v === undefined || v === null) return NaN;
+                if (typeof v === 'number') return v;
+                const n = parseFloat(String(v).replace(/[^0-9+\-\.eE]/g, ''));
+                return isNaN(n) ? NaN : n;
+            };
+            // Filtere Trading-Signale
+            const signals = data.filter(row => 
+                row.Strategy_Signal && 
+                row.Strategy_Signal !== '' && 
+                row.Strategy_Signal !== 'HOLD'
+            );
+
+            if (signals.length === 0) {
+                return getDemoPerformanceData();
+            }
+
+            // Berechne Metriken
+            const analysis = {
+                totalSignals: signals.length,
+                successfulSignals: 0,
+                totalROI: 0,
+                bySignalType: { BUY: { count: 0, roi: 0, successful: 0 }, SELL: { count: 0, roi: 0, successful: 0 } },
+                byCoin: {},
+                byTimeframe: { short: { count: 0, roi: 0 }, medium: { count: 0, roi: 0 }, long: { count: 0, roi: 0 } },
+                riskMetrics: { maxGain: 0, maxLoss: 0, returns: [] },
+                metadata: {
+                    roiSource: 'N/A',
+                    coinSource: 'N/A',
+                    timestampSource: 'N/A',
+                    latestTimestamp: null
+                }
+            };
+
+            let roiSourceDetermined = false;
+            let coinSourceDetermined = false;
+            let timestampSourceDetermined = false;
+
+            signals.forEach(signal => {
+                let roi = toNum(signal.Performance_Percent);
+                const signalType = signal.Strategy_Signal;
+                
+                // Metadaten: Coin-Quelle
+                let coin = 'Unknown';
+                if (!coinSourceDetermined) {
+                    if (signal.Coin) { analysis.metadata.coinSource = 'Coin'; coinSourceDetermined = true; }
+                    else if (signal.Coin_Name) { analysis.metadata.coinSource = 'Coin_Name'; coinSourceDetermined = true; }
+                    else if (signal.Symbol) { analysis.metadata.coinSource = 'Symbol'; coinSourceDetermined = true; }
+                }
+                coin = signal[analysis.metadata.coinSource] || 'Unknown';
+
+
+                // Metadaten & Berechnung: ROI-Quelle
+                if (isNaN(roi)) {
+                    if (!roiSourceDetermined) {
+                        analysis.metadata.roiSource = 'Berechnet (Signal/Current Price)';
+                        roiSourceDetermined = true;
+                    }
+                    const entry = toNum(signal.Signal_Price || signal.Entry_Price);
+                    const exit = toNum(signal.Current_Price || signal.Exit_Price || signal.Preis_EUR);
+                    if (!isNaN(entry) && !isNaN(exit) && entry > 0) {
+                        if (signalType === 'BUY') {
+                            roi = ((exit - entry) / entry) * 100;
+                        } else if (signalType === 'SELL') {
+                            roi = ((entry - exit) / entry) * 100;
+                        }
+                    } else {
+                        roi = 0; // Fallback
+                    }
+                } else {
+                    if (!roiSourceDetermined) {
+                        analysis.metadata.roiSource = 'Performance_Percent';
+                        roiSourceDetermined = true;
+                    }
+                }
+
+                const isSuccessful = roi > 0;
+
+                analysis.totalROI += roi;
+                analysis.riskMetrics.returns.push(roi);
+                
+                if (isSuccessful) analysis.successfulSignals++;
+                if (roi > analysis.riskMetrics.maxGain) analysis.riskMetrics.maxGain = roi;
+                if (roi < analysis.riskMetrics.maxLoss) analysis.riskMetrics.maxLoss = roi;
+
+                // Nach Signal-Typ
+                if (analysis.bySignalType[signalType]) {
+                    analysis.bySignalType[signalType].count++;
+                    analysis.bySignalType[signalType].roi += roi;
+                    if (isSuccessful) analysis.bySignalType[signalType].successful++;
+                }
+
+                // Nach Coin
+                if (!analysis.byCoin[coin]) {
+                    analysis.byCoin[coin] = { count: 0, roi: 0, successful: 0 };
+                }
+                analysis.byCoin[coin].count++;
+                analysis.byCoin[coin].roi += roi;
+                if (isSuccessful) analysis.byCoin[coin].successful++;
+
+                // Nach Zeitraum & Metadaten: Zeitstempel-Quelle
+                let days = NaN;
+                const parseDate = (v) => v ? new Date(String(v)) : null;
+                
+                let sigTs, curTs;
+                if (!timestampSourceDetermined) {
+                    if (signal.Signal_Timestamp && signal.Current_Timestamp) {
+                        analysis.metadata.timestampSource = 'Signal/Current_Timestamp';
+                        timestampSourceDetermined = true;
+                    } else if (signal.Zeitstempel && signal.current_timestamp) {
+                        analysis.metadata.timestampSource = 'Zeitstempel/current_timestamp';
+                        timestampSourceDetermined = true;
+                    } else {
+                        analysis.metadata.timestampSource = 'Zufällig (Fallback)';
+                    }
+                }
+
+                switch (analysis.metadata.timestampSource) {
+                    case 'Signal/Current_Timestamp':
+                        sigTs = signal.Signal_Timestamp;
+                        curTs = signal.Current_Timestamp;
+                        break;
+                    case 'Zeitstempel/current_timestamp':
+                        sigTs = signal.Zeitstempel;
+                        curTs = signal.current_timestamp;
+                        break;
+                }
+
+                const d1 = parseDate(sigTs);
+                const d2 = parseDate(curTs) || new Date(); // Fallback auf jetzt
+                
+                if (d1 && d2 && !isNaN(d1) && !isNaN(d2)) {
+                    days = Math.max(0, (d2 - d1) / (1000 * 60 * 60 * 24));
+                    if (!analysis.metadata.latestTimestamp || d2 > analysis.metadata.latestTimestamp) {
+                        analysis.metadata.latestTimestamp = d2;
+                    }
+                }
+
+                if (isNaN(days)) {
+                    days = Math.random() * 30; // Fallback für Demo
+                }
+
+                if (days <= 7) {
+                    analysis.byTimeframe.short.count++;
+                    analysis.byTimeframe.short.roi += roi;
+                } else if (days <= 30) {
+                    analysis.byTimeframe.medium.count++;
+                    analysis.byTimeframe.medium.roi += roi;
+                } else {
+                    analysis.byTimeframe.long.count++;
+                    analysis.byTimeframe.long.roi += roi;
+                }
+            });
+
+            return analysis;
+        }
+
+        // === DEMO PERFORMANCE DATEN ===
+        function getDemoPerformanceData() {
+            return {
+                totalSignals: 50,
+                successfulSignals: 29,
+                totalROI: 127.5,
+                bySignalType: {
+                    BUY: { count: 32, roi: 89.2, successful: 19 },
+                    SELL: { count: 18, roi: 38.3, successful: 10 }
+                },
+                byCoin: {
+                    'BTC': { count: 8, roi: 34.2, successful: 5 },
+                    'ETH': { count: 7, roi: 28.7, successful: 4 },
+                    'BNB': { count: 6, roi: 22.1, successful: 4 },
+                    'ADA': { count: 5, roi: -8.3, successful: 2 },
+                    'SOL': { count: 6, roi: 19.8, successful: 3 }
+                },
+                byTimeframe: {
+                    short: { count: 20, roi: 45.2 },
+                    medium: { count: 22, roi: 67.8 },
+                    long: { count: 8, roi: 14.5 }
+                },
+                riskMetrics: {
+                    maxGain: 18.7,
+                    maxLoss: -12.4,
+                    returns: [5.2, -3.1, 8.9, 12.3, -7.2, 15.6, 2.1, -4.8, 9.3, 6.7]
+                },
+                metadata: {
+                    roiSource: 'Performance_Percent (Demo)',
+                    coinSource: 'Coin (Demo)',
+                    timestampSource: 'Zufällig (Demo)',
+                    latestTimestamp: new Date()
+                }
+            };
+        }
+
+        // === DISPLAY UPDATE ===
+        function updatePerformanceDisplay() {
+            if (!performanceData) return;
+
+            const data = performanceData;
+            
+            // Gesamtperformance
+            document.getElementById('totalSignals').textContent = data.totalSignals;
+            document.getElementById('successfulSignals').textContent = data.successfulSignals;
+            
+            const successRate = (data.successfulSignals / data.totalSignals * 100).toFixed(1);
+            const successRateElement = document.getElementById('successRate');
+            successRateElement.textContent = `${successRate}%`;
+            successRateElement.className = `metric-value ${successRate >= 60 ? 'positive' : successRate >= 40 ? 'neutral' : 'negative'}`;
+            
+            const avgROI = parseFloat((data.totalROI / data.totalSignals).toFixed(2));
+            const avgROIElement = document.getElementById('avgROI');
+            avgROIElement.textContent = `${avgROI.toFixed(2)}%`;
+            avgROIElement.className = `metric-value ${avgROI > 0 ? 'positive' : 'negative'}`;
+            
+            const totalROIElement = document.getElementById('totalROI');
+            totalROIElement.textContent = `${data.totalROI.toFixed(2)}%`;
+            totalROIElement.className = `metric-value ${data.totalROI > 0 ? 'positive' : 'negative'}`;
+
+            // Signal Performance
+            const buySuccessRate = data.bySignalType.BUY.count > 0 ? 
+                (data.bySignalType.BUY.successful / data.bySignalType.BUY.count * 100).toFixed(1) : 0;
+            document.getElementById('buyPerformance').textContent = 
+                `${buySuccessRate}% (${data.bySignalType.BUY.count} Signale)`;
+
+            const sellSuccessRate = data.bySignalType.SELL.count > 0 ? 
+                (data.bySignalType.SELL.successful / data.bySignalType.SELL.count * 100).toFixed(1) : 0;
+            document.getElementById('sellPerformance').textContent = 
+                `${sellSuccessRate}% (${data.bySignalType.SELL.count} Signale)`;
+
+            // Beste/Schlechteste Coin
+            const coinEntries = Object.entries(data.byCoin);
+            if (coinEntries.length > 0) {
+                const bestCoin = coinEntries.reduce((a, b) => a[1].roi > b[1].roi ? a : b);
+                const worstCoin = coinEntries.reduce((a, b) => a[1].roi < b[1].roi ? a : b);
+                
+                document.getElementById('bestCoin').textContent = `${bestCoin[0]} (+${bestCoin[1].roi.toFixed(1)}%)`;
+                document.getElementById('worstCoin').textContent = `${worstCoin[0]} (${worstCoin[1].roi.toFixed(1)}%)`;
+            }
+
+            // Zeitframe Analyse
+            const shortTermROI = data.byTimeframe.short.count > 0 ? 
+                (data.byTimeframe.short.roi / data.byTimeframe.short.count).toFixed(2) : 0;
+            document.getElementById('shortTermPerf').textContent = `${shortTermROI}% (${data.byTimeframe.short.count})`;
+
+            const mediumTermROI = data.byTimeframe.medium.count > 0 ? 
+                (data.byTimeframe.medium.roi / data.byTimeframe.medium.count).toFixed(2) : 0;
+            document.getElementById('mediumTermPerf').textContent = `${mediumTermROI}% (${data.byTimeframe.medium.count})`;
+
+            const longTermROI = data.byTimeframe.long.count > 0 ? 
+                (data.byTimeframe.long.roi / data.byTimeframe.long.count).toFixed(2) : 0;
+            document.getElementById('longTermPerf').textContent = `${longTermROI}% (${data.byTimeframe.long.count})`;
+
+            document.getElementById('bestWeek').textContent = 'KW 34 (+23.7%)'; // Demo-Wert
+
+            // Risiko Metriken
+            document.getElementById('maxGain').textContent = `+${data.riskMetrics.maxGain.toFixed(2)}%`;
+            document.getElementById('maxLoss').textContent = `${data.riskMetrics.maxLoss.toFixed(2)}%`;
+            
+            const volatility = data.riskMetrics.returns.length > 0 ? 
+                Math.sqrt(data.riskMetrics.returns.reduce((sum, r) => sum + Math.pow(r - avgROI, 2), 0) / data.riskMetrics.returns.length) : 0;
+            document.getElementById('volatility').textContent = `${volatility.toFixed(2)}%`;
+            
+            const sharpeRatio = volatility > 0 ? (avgROI / volatility).toFixed(3) : '0.000';
+            const sharpeElement = document.getElementById('sharpeRatio');
+            sharpeElement.textContent = sharpeRatio;
+            sharpeElement.className = `metric-value ${sharpeRatio > 1 ? 'positive' : sharpeRatio > 0.5 ? 'neutral' : 'negative'}`;
+
+            // Metadaten anzeigen
+            if (data.metadata) {
+                document.getElementById('dataSourceInfo').textContent = `ROI-Quelle: ${data.metadata.roiSource}`;
+                if (data.metadata.latestTimestamp) {
+                    document.getElementById('lastUpdatedInfo').textContent = `Letztes Update: ${data.metadata.latestTimestamp.toLocaleString('de-DE')}`;
+                } else {
+                    document.getElementById('lastUpdatedInfo').textContent = 'Letztes Update: N/A';
+                }
+                document.getElementById('mapCoin').textContent = data.metadata.coinSource;
+                document.getElementById('mapROI').textContent = data.metadata.roiSource;
+                document.getElementById('mapTimestamp').textContent = data.metadata.timestampSource;
+            }
+
+            // Charts erstellen
+            createCharts();
+        }
+
+        // === CHARTS ERSTELLEN ===
+        function createCharts() {
+            createROIChart();
+            createCoinChart();
+            createTimeframeChart();
+        }
+
+        function createROIChart() {
+            const ctx = document.getElementById('roiChart').getContext('2d');
+            
+            // Zerstöre existierenden Chart
+            if (chartInstances.roiChart) {
+                chartInstances.roiChart.destroy();
+            }
+
+            // Simuliere zeitliche ROI-Entwicklung
+            const labels = [];
+            const data = [];
+            let cumulativeROI = 0;
+            
+            for (let i = 0; i < 20; i++) {
+                labels.push(`Tag ${i + 1}`);
+                const dailyROI = (Math.random() - 0.4) * 10; // -4% bis +6%
+                cumulativeROI += dailyROI;
+                data.push(cumulativeROI);
+            }
+
+            chartInstances.roiChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Kumulative ROI (%)',
+                        data: data,
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return value + '%';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function createCoinChart() {
+            const ctx = document.getElementById('coinChart').getContext('2d');
+            
+            if (chartInstances.coinChart) {
+                chartInstances.coinChart.destroy();
+            }
+
+            const coinData = performanceData.byCoin;
+            const coins = Object.keys(coinData);
+            const successRates = coins.map(coin => 
+                coinData[coin].count > 0 ? (coinData[coin].successful / coinData[coin].count * 100) : 0
+            );
+
+            chartInstances.coinChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: coins,
+                    datasets: [{
+                        label: 'Erfolgsrate (%)',
+                        data: successRates,
+                        backgroundColor: successRates.map(rate => 
+                            rate >= 60 ? '#22c55e' : rate >= 40 ? '#f59e0b' : '#ef4444'
+                        ),
+                        borderColor: '#fff',
+                        borderWidth: 2,
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            ticks: {
+                                callback: function(value) {
+                                    return value + '%';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function createTimeframeChart() {
+            const ctx = document.getElementById('timeframeChart').getContext('2d');
+            
+            if (chartInstances.timeframeChart) {
+                chartInstances.timeframeChart.destroy();
+            }
+
+            const timeframeData = performanceData.byTimeframe;
+            const labels = ['Kurzfristig (1-7d)', 'Mittelfristig (8-30d)', 'Langfristig (31+d)'];
+            const avgROI = [
+                timeframeData.short.count > 0 ? timeframeData.short.roi / timeframeData.short.count : 0,
+                timeframeData.medium.count > 0 ? timeframeData.medium.roi / timeframeData.medium.count : 0,
+                timeframeData.long.count > 0 ? timeframeData.long.roi / timeframeData.long.count : 0
+            ];
+
+            chartInstances.timeframeChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: avgROI.map(Math.abs), // Absolute Werte für Darstellung
+                        backgroundColor: ['#667eea', '#764ba2', '#f59e0b'],
+                        borderColor: '#fff',
+                        borderWidth: 3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+        }
+
+        // === INITIALISIERUNG ===
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('📊 Performance Dashboard gestartet');
+            loadPerformanceData();
+        });
+    </script>
+</body>
+</html>
