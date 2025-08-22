@@ -621,8 +621,7 @@
                 <button onclick="document.getElementById('debugPanel').style.display='none'" style="margin-left: auto; background: #e53e3e; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">❌ Ausblenden</button>
             </div>
             <div id="debugLogs" style="background: #1a202c; padding: 15px; border-radius: 8px; min-height: 100px; max-height: 300px; overflow-y: auto; border: 1px solid #4a5568;">
-                <div style="color: #68d391;">✅ Debug-System initialisiert | Version: v2.1.0</div>
-                <div style="color: #fbb6ce;">⏳ Warte auf Dashboard-Daten...</div>
+                <!-- Logs werden hier dynamisch von JavaScript eingefügt -->
             </div>
         </section>
 
@@ -929,6 +928,49 @@
             ]
         };
 
+        // === DEBUG SYSTEM v2.1.1 ===
+        function debugLog(message, type = 'info') {
+            const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 19);
+            const formattedMessage = `🔧 [${timestamp}] ${message}`;
+            
+            const debugContainer = document.getElementById('debugLogs');
+            
+            // Füge neue Zeile hinzu
+            const newLine = document.createElement('div');
+            newLine.textContent = formattedMessage;
+            newLine.style.color = '#e2e8f0';
+            newLine.style.marginBottom = '5px';
+            
+            // Farbige Log-Typen
+            const colors = {
+                'info': '#81c784', // Grün
+                'warn': '#ffb74d',  // Orange
+                'error': '#e57373', // Rot
+                'success': '#68d391',// Heller Grün
+                'data': '#90cdf4',   // Blau
+                'system': '#b39ddb' // Lila
+            };
+            
+            newLine.style.borderLeft = `4px solid ${colors[type] || '#e2e8f0'}`;
+            debugContainer.appendChild(newLine);
+            
+            debugContainer.scrollTop = debugContainer.scrollHeight; // Auto-scroll
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            debugLog('🚀 Crypto Dashboard v2.1.1 initialisiert', 'system');
+            
+            // Initialize DOM caching for performance
+            initializeDOM();
+            debugLog('🔧 DOM Elemente initialisiert', 'success');
+            
+            setupEventListeners();
+            debugLog('🎧 Event Listeners konfiguriert', 'success');
+            
+            loadDashboardData(); // Startet direkt mit konfigurierter URL
+            debugLog('📡 Datenladung gestartet...', 'info');
+        });
+        
         // === HILFSFUNKTIONEN (MÜSSEN ZUERST DEFINIERT WERDEN) ===
 
         // === KORRIGIERTE DEUTSCHE ZAHLEN-KONVERTIERUNG ===
@@ -1065,12 +1107,14 @@
 
         // Verarbeitung für englische Demo-Daten (CSV mit englischen Spalten)
         function processMarketData(data) {
+            debugLog('🔄 Verarbeite Markt-Daten (englisches Format):', 'info');
             console.log('🔄 Verarbeite Markt-Daten (englisches Format):', data.length, 'Einträge');
             
             if (data.length === 0) {
                 throw new Error('Keine Daten zum Verarbeiten vorhanden');
             }
             
+            debugLog(`📊 Sample Demo-Eintrag: ${JSON.stringify(data[0])}`, 'data');
             console.log('📊 Sample Demo-Eintrag:', data[0]);
             
             const coins = {};
@@ -1142,6 +1186,8 @@
                 totalPortfolioValue += parseFloat(row.portfolio_value || 0);
             });
             
+            debugLog(`📊 Verarbeitete Coins: ${Object.keys(coins).join(', ')}`, 'data');
+            debugLog(`💰 Gesamt-Portfolio-Wert: €${totalPortfolioValue.toLocaleString('de-DE')}`, 'success');
             console.log('📊 Verarbeitete Coins:', Object.keys(coins));
             console.log('💰 Gesamt-Portfolio-Wert:', totalPortfolioValue);
             
@@ -1152,6 +1198,7 @@
                 last_update: new Date().toISOString()
             };
             
+            debugLog(`✅ Dashboard-Daten erstellt: ${Object.keys(dashboardData.coins).length} Coins`, 'success');
             console.log('✅ Dashboard-Daten erstellt:', Object.keys(dashboardData.coins).length, 'Coins');
             
             return dashboardData;
@@ -1298,352 +1345,29 @@
                     coinData.volatilityLevel.push(row['Volatility_Level'] || '🟡 Mittel');
                     coinData.volatilityTrend.push(row['Volatility_Trend'] || '➡️ Stabil');
                     coinData.stopLoss.push(parseFloat(row['Stop_Loss_Long'] || 0));
-                    coinData.stochK.push(parseFloat(row['Stoch_K'] || 50));
-                    coinData.williamsR.push(parseFloat(row['Williams_R'] || -50));
-                    
-                    // MACD erweiterte Daten
-                    coinData.macdSignal.push(parseFloat(row['MACD_Signal'] || 0));
-                    coinData.macdHistogram.push(parseFloat(row['MACD_Histogram'] || 0));
-                    
-                    // Moving Averages
-                    coinData.ma20.push(parseFloat(row['MA20'] || 0));
-                    coinData.ma50.push(parseFloat(row['MA50'] || 0));
-                    coinData.ma200.push(parseFloat(row['MA200'] || 0));
-                    coinData.maTrend.push(row['MA_Trend'] || '🟡 Neutral');
-                    
-                    // News-Analyse Daten
-                    coinData.newsCategory.push(row['News_Kategorie'] || 'Keine News');
-                    coinData.newsSummary.push(row['News_Zusammenfassung'] || '');
-                    coinData.newsCritical.push(row['News_Kritisch'] === 'Ja');
-                    
-                    // Portfolio-Historie für Chart (mit allen historischen Werten)
-                    const currentDayTotal = portfolioHistoryMap.get(date) || 0;
-                    portfolioHistoryMap.set(date, currentDayTotal + wert);
                 });
             }
-
-            // Konvertiere Portfolio-Historie zu Array
-            const portfolioHistory = Array.from(portfolioHistoryMap.entries())
-                .map(([date, value]) => ({ date, value }))
-                .sort((a, b) => new Date(a.date) - new Date(b.date));
-
-            console.log('✅ Verarbeitung erfolgreich:');
-            console.log(`📊 ${Object.keys(coins).length} Coins verarbeitet`);
-            console.log(`💰 FINALES PORTFOLIO (nur neueste Werte): €${totalPortfolioValue.toLocaleString('de-DE', {minimumFractionDigits: 2})}`);
-            console.log(`📈 Portfolio-Historie: ${portfolioHistory.length} Datenpunkte`);
             
-            // VALIDIERUNG: Portfolio sollte realistisch sein
-            if (totalPortfolioValue < 50) {
-                console.warn('⚠️ WARNUNG: Portfolio-Wert sehr niedrig. Prüfen Sie die Wert_EUR Spalte.');
-            }
-            if (totalPortfolioValue > 100000) {
-                console.warn('⚠️ WARNUNG: Portfolio-Wert sehr hoch. Eventuell werden historische Daten doppelt gezählt.');
-            }
-
-            return {
+            // Setze globale Dashboard-Daten für die Anzeige
+            dashboardData = {
                 coins: coins,
-                last_update: new Date().toISOString(),
                 portfolio_total: totalPortfolioValue,
-                portfolio_history: portfolioHistory
-            };
-        }
-
-        // Globale Variablen
-        let charts = {
-            main: null,
-            portfolio: null,
-            rsi: null,
-            atr: null,  // NEUES ATR CHART
-            volume: null
-        };
-        let dashboardData = null;
-        let currentCoin = 'Bitcoin';
-        let currentTimeRange = 30;
-
-        // === DEBUG SYSTEM v2.1.0 ===
-        function debugLog(message, type = 'info') {
-            const debugContainer = document.getElementById('debugLogs');
-            if (!debugContainer) return;
-            
-            const timestamp = new Date().toLocaleTimeString('de-DE');
-            const colors = {
-                'info': '#81c784',
-                'warn': '#ffb74d', 
-                'error': '#e57373',
-                'success': '#68d391',
-                'data': '#64b5f6'
+                last_update: new Date().toISOString()
             };
             
-            const logEntry = document.createElement('div');
-            logEntry.style.color = colors[type] || colors.info;
-            logEntry.style.marginBottom = '3px';
-            logEntry.innerHTML = `[${timestamp}] ${message}`;
-            
-            debugContainer.appendChild(logEntry);
-            debugContainer.scrollTop = debugContainer.scrollHeight;
-            
-            // Auch in Browser Console loggen
-            console.log(`[DEBUG v2.1.0] ${message}`);
+            console.log('✅ Datenverarbeitung abgeschlossen:', Object.keys(dashboardData.coins).length, 'Coins');
         }
 
-        // Initialisierung
-        document.addEventListener('DOMContentLoaded', function() {
-            debugLog('🚀 Dashboard v2.1.0 startet...', 'success');
-            debugLog('📊 Features: Trading Signals, Portfolio Analysis, ATR Volatility', 'info');
+        // === DATA LOADING & INITIALIZATION ===
+        async function loadDashboardData() {
+            debugLog('📡 Starte Datenladung...', 'info');
             
-            console.log(`🚀 Crypto Dashboard ${DASHBOARD_VERSION.version} - Build ${DASHBOARD_VERSION.build}`);
-            console.log('📊 Features:', DASHBOARD_VERSION.features.join(', '));
-            console.log('👨‍💻 Created by:', DASHBOARD_VERSION.author);
-            console.log('📖 Repository: https://github.com/LaraDresden/crypto-dashboard');
+            // Da keine Google Sheets URL konfiguriert ist, verwende Demo-Daten direkt
+            debugLog('🎮 Lade Demo-Daten (keine Google Sheets URL konfiguriert)', 'info');
             
-            // Initialize DOM caching for performance
-            initializeDOM();
-            
-            setupEventListeners();
-            debugLog('🔧 Event Listeners konfiguriert', 'success');
-            
-            loadDashboardData(); // Startet direkt mit konfigurierter URL
-            debugLog('📡 Datenladung gestartet...', 'info');
-        });
-
-        function initializeUI() {
-            if (!dashboardData || !dashboardData.coins) {
-                debugLog('❌ FEHLER: Keine Dashboard-Daten für UI-Initialisierung!', 'error');
-                console.warn('⚠️ Keine Dashboard-Daten für UI-Initialisierung verfügbar');
-                return;
-            }
-            
-            debugLog(`📊 Dashboard-Daten verfügbar: ${Object.keys(dashboardData.coins).length} Coins`, 'data');
-            console.log('🎨 Initialisiere UI mit echten Daten...');
-            const settings = loadUserSettings();
-            
-            // Coin-Dropdown mit echten Daten füllen
-            const select = document.getElementById('coinSelect');
-            select.innerHTML = '';
-            let selectedCoinExists = false;
-            
-            debugLog('🪙 Befülle Coin-Dropdown...', 'info');
-            Object.keys(dashboardData.coins).forEach(coinName => {
-                const option = document.createElement('option');
-                option.value = coinName;
-                option.textContent = coinName;
-                select.appendChild(option);
-                debugLog(`  ➕ ${coinName} hinzugefügt`, 'data');
-                
-                if (coinName === settings.selectedCoin) {
-                    selectedCoinExists = true;
-                }
-            });
-            
-            // Setze gespeicherten oder ersten verfügbaren Coin
-            if (selectedCoinExists) {
-                currentCoin = settings.selectedCoin;
-                select.value = settings.selectedCoin;
-            } else {
-                const firstCoin = Object.keys(dashboardData.coins)[0];
-                if (firstCoin) {
-                    currentCoin = firstCoin;
-                    select.value = firstCoin;
-                }
-            }
-            
-            // Setze gespeicherten Zeitraum
-            currentTimeRange = settings.timeRange;
-            document.querySelectorAll('.time-btn').forEach(btn => {
-                btn.classList.remove('active');
-                if (parseInt(btn.dataset.days) === settings.timeRange) {
-                    btn.classList.add('active');
-                }
-            });
-            
-            console.log('✅ UI initialisiert - Aktueller Coin:', currentCoin, 'Zeitraum:', currentTimeRange);
-        }
-
-        function setupEventListeners() {
-            // Coin-Auswahl
-            document.getElementById('coinSelect').addEventListener('change', function(e) {
-                currentCoin = e.target.value;
-                
-                // Speichere Auswahl
-                const settings = loadUserSettings();
-                settings.selectedCoin = currentCoin;
-                saveUserSettings(settings);
-                
-                updateDashboard();
-            });
-
-            // Zeitraum-Buttons
-            document.querySelectorAll('.time-btn').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    document.querySelectorAll('.time-btn').forEach(b => b.classList.remove('active'));
-                    this.classList.add('active');
-                    currentTimeRange = parseInt(this.dataset.days);
-                    
-                    // Speichere Zeitraum
-                    const settings = loadUserSettings();
-                    settings.timeRange = currentTimeRange;
-                    saveUserSettings(settings);
-                    
-                    updateDashboard();
-                });
-            });
-
-            // Refresh Button
-            document.getElementById('refreshBtn').addEventListener('click', function() {
-                loadDashboardData(); // Lädt direkt von konfigurierter URL
-            });
-        }
-
-        // === DATENLADUNG FUNKTIONEN ===
-
-        function getGoogleSheetUrl() {
-            // Verwende die konfigurierte URL oder return leeren String für Demo-Modus
-            return GOOGLE_SHEET_CSV_URL || "";
-        }
-
-        function loadDashboardData() {
-            debugLog('🚀 Starte Dashboard-Datenladung...', 'info');
-            console.log('🚀 Starte Dashboard-Datenladung...');
-            
-            // PRIMÄR: VERSUCHE LIVE-DATEN VON GOOGLE SHEETS ZU LADEN
-            const sheetUrl = getGoogleSheetUrl();
-            debugLog(`🔍 Google Sheets URL: ${sheetUrl}`, 'data');
-            console.log('🔍 Google Sheets URL gefunden:', sheetUrl);
-            
-            if (sheetUrl && sheetUrl !== "IHRE_GOOGLE_SHEET_CSV_EXPORT_URL_HIER_EINFUEGEN" && sheetUrl !== "" && sheetUrl !== "PLACEHOLDER_URL") {
-                console.log('� Versuche LIVE-DATEN von Google Sheets zu laden...');
-                updateConnectionStatus('connecting', '📡 Lade Live-Daten von Google Sheets...');
-                
-                // Versuche direkt Live-Daten zu laden
-                tryLoadGoogleSheets();
-            } else {
-                console.log('⚠️ Keine gültige Google Sheets URL konfiguriert');
-                console.log('🎮 Fallback: Verwende Demo-Daten');
-                updateConnectionStatus('demo', '🎮 Google Sheets nicht konfiguriert - Demo-Daten geladen');
-                
-                // Fallback auf Demo-Daten wenn keine URL konfiguriert
-                loadDemoData();
-            }
-        }
-        
-        function tryLoadGoogleSheets() {
-            const sheetUrl = getGoogleSheetUrl();
-            if (!sheetUrl || sheetUrl === 'PLACEHOLDER_URL') {
-                console.log('⚠️ Google Sheets URL nicht konfiguriert, verwende Demo-Daten');
-                loadDemoData();
-                return;
-            }
-
-            console.log('🔄 Versuche Google Sheets zu laden...');
-            updateConnectionStatus('connecting', '🔄 Verbinde mit Google Sheets...');
-            
-            // Direkter Versuch zuerst
-            fetch(sheetUrl, {
-                method: 'GET',
-                headers: {
-                    'Accept': 'text/csv',
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-                }
-            })
-                .then(response => {
-                    console.log('📡 Response Status:', response.status, response.statusText);
-                    if (!response.ok) {
-                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                    }
-                    return response.text();
-                })
-                .then(csvData => {
-                    console.log('📋 CSV-Daten empfangen:', csvData.length, 'Zeichen');
-                    console.log('📋 Erste 500 Zeichen:', csvData.substring(0, 500));
-                    
-                    if (!csvData || csvData.trim() === '') {
-                        throw new Error('EMPTY_SHEET');
-                    }
-                    
-                    const data = parseCSVData(csvData);
-                    console.log('🔄 Parsed Data:', data.length, 'Zeilen');
-                    
-                    if (data.length === 0) {
-                        throw new Error('EMPTY_SHEET');
-                    }
-                    
-                    dashboardData = processSheetData(data);
-                    console.log('📊 Dashboard Data verarbeitet:', Object.keys(dashboardData.coins).length, 'Coins');
-                    console.log('💰 Portfolio Total:', dashboardData.portfolio_total);
-                    
-                    if (Object.keys(dashboardData.coins).length === 0) {
-                        throw new Error('Keine Coins nach Datenverarbeitung gefunden');
-                    }
-                    
-                    updateConnectionStatus('connected', '✅ Google Sheets verbunden');
-                    initializeUI();
-                    updateDashboard();
-                    
-                    console.log('✅ ERFOLG: Live-Daten geladen!');
-                    
-                })
-                .catch(error => {
-                    console.error('❌ Erster Versuch fehlgeschlagen:', error);
-                    console.log('🔄 Versuche Fallback mit CORS-Proxy...');
-                    
-                    // Fallback: Verwende allorigins.win CORS-Proxy
-                    const corsProxy = 'https://api.allorigins.win/get?url=';
-                    const fallbackUrl = corsProxy + encodeURIComponent(sheetUrl);
-                    
-                    return fetch(fallbackUrl)
-                        .then(response => {
-                            if (!response.ok) {
-                                throw new Error(`CORS-Proxy Fehler: ${response.status}`);
-                            }
-                            return response.json();
-                        })
-                        .then(data => {
-                            if (!data.contents) {
-                                throw new Error('Keine Daten vom CORS-Proxy erhalten');
-                            }
-                            
-                            console.log('📋 CSV-Daten über CORS-Proxy empfangen:', data.contents.length, 'Zeichen');
-                            
-                            const csvData = data.contents;
-                            const parsedData = parseCSVData(csvData);
-                            console.log('🔄 Parsed Data:', parsedData.length, 'Zeilen');
-                            
-                            if (parsedData.length === 0) {
-                                throw new Error('Keine gültigen Daten nach CSV-Parsing');
-                            }
-                            
-                            dashboardData = processSheetData(parsedData);
-                            console.log('📊 Dashboard Data verarbeitet:', Object.keys(dashboardData.coins).length, 'Coins');
-                            
-                            if (Object.keys(dashboardData.coins).length === 0) {
-                                throw new Error('Keine Coins nach Datenverarbeitung gefunden');
-                            }
-                            
-                            updateConnectionStatus('connected', '✅ Daten über CORS-Proxy geladen');
-                            initializeUI();
-                            updateDashboard();
-                            
-                            console.log('✅ ERFOLG: Live-Daten über Fallback geladen!');
-                        })
-                        .catch(fallbackError => {
-                            console.error('❌ Google Sheets und CORS-Proxy fehlgeschlagen:', error, fallbackError);
-                            console.log('🎮 FALLBACK: Verwende Demo-Daten');
-                            
-                            updateConnectionStatus('demo', '🎮 Live-Daten nicht verfügbar - Demo-Daten geladen');
-                            
-                            // FALLBACK: Demo-Daten laden
-                            loadDemoData();
-                        });
-                });
-        }
-
-        function loadDemoData() {
-            debugLog('🎮 Lade erweiterte Demo-Daten für lokale Tests...', 'info');
-            console.log('🎮 Lade erweiterte Demo-Daten für lokale Tests...');
-            updateConnectionStatus('connected', '🎮 Erweiterte Demo-Daten geladen');
-            
-            // Verwende realistische CSV Demo-Daten
-            const demoCSV = `timestamp,coin,current_price,price_change_24h,price_change_7d,volume_24h,market_cap,fear_greed_index,rsi,macd_signal,bb_position,support_level,resistance_level,atr,stoch_k,stoch_d,williams_r,news_sentiment,ai_recommendation,strategy_signal,confidence_score,stop_loss,take_profit,portfolio_weight,portfolio_value
+            try {
+                // Demo CSV-Daten direkt in JavaScript definiert
+                const demoCSV = `timestamp,coin,current_price,price_change_24h,price_change_7d,volume_24h,market_cap,fear_greed_index,rsi,macd_signal,bb_position,support_level,resistance_level,atr,stoch_k,stoch_d,williams_r,news_sentiment,ai_recommendation,strategy_signal,confidence_score,stop_loss,take_profit,portfolio_weight,portfolio_value
 2025-08-22T01:14:02.881878,Bitcoin,44039.0941,-7.61,0.21,1192361901,33501590806012,50,36.73,HOLD,0.384,40526.3295,45203.1574,1601.8605,38.51,38.24,-48.79,Bullish,Hold,BUY,0.676,40244.2864,46770.8976,11.25,38593.83
 2025-08-22T01:09:02.881878,Ethereum,2893.4466,-5.74,-9.80,1164139490,2380407222531,51,52.84,BUY,0.275,2807.1226,3117.1194,164.6456,75.14,80.01,-41.94,Bullish,Buy,SELL,0.774,2621.6402,3293.5265,20.87,7185.52
 2025-08-22T01:04:02.881878,Binance Coin,294.7483,10.68,6.12,13047381742,220297363806,57,51.28,BUY,0.610,275.8264,311.4755,14.5871,73.09,72.33,-49.21,Bullish,Buy,BUY,0.911,279.4069,318.9407,7.15,6630.10
@@ -1654,572 +1378,581 @@
 2025-08-22T00:39:02.881878,Polygon,0.7634,-8.91,12.34,4567890123,5678901234567,45,28.97,SELL,0.234,0.7123,0.8234,0.0456,31.23,29.87,-73.45,Bearish,Sell,SELL,0.634,0.7012,0.8123,8.76,3456.78
 2025-08-22T00:34:02.881878,Dogecoin,0.0845,15.23,-2.45,987123456,12345678901234,68,72.14,BUY,0.723,0.0789,0.0891,0.0089,69.45,71.23,-28.67,Very Bullish,Speculative Buy,BUY,0.756,0.0798,0.0923,5.67,2134.56
 2025-08-22T00:29:02.881878,XRP,0.5234,-3.12,8.91,3456789012,23456789012345,55,48.76,HOLD,0.456,0.4987,0.5489,0.0234,51.23,49.87,-52.34,Neutral,Hold,HOLD,0.689,0.4923,0.5678,7.89,4567.89`;
-
-            try {
-                // Parse die CSV Demo-Daten wie echte Google Sheets Daten
-                const demoData = parseCSVData(demoCSV);
-                debugLog(`✅ CSV geparst: ${demoData.length} Datensätze`, 'success');
-                console.log('✅ Erweiterte Demo-Daten erfolgreich geladen:', demoData.length, 'Einträge');
                 
-                // Setze die globalen Daten
-                currentData = demoData;
-                debugLog(`🔄 currentData gesetzt (${currentData.length} Einträge)`, 'data');
+                debugLog('📊 Parse Demo-CSV-Daten...', 'info');
                 
-                // Verarbeite die Daten wie Google Sheets Daten
-                dashboardData = processDemoData(demoData);
-                debugLog(`📊 Demo-Daten verarbeitet: ${Object.keys(dashboardData.coins).length} Coins`, 'success');
-                debugLog(`💰 Portfolio Total: €${dashboardData.portfolio_total.toLocaleString('de-DE')}`, 'data');
+                // Parse CSV data
+                const parsedData = parseCSVData(demoCSV);
+                debugLog(`✅ CSV geparst: ${parsedData.length} Datensätze`, 'success');
                 
-                console.log('📊 Dashboard Data nach Verarbeitung:', dashboardData);
-                console.log('💰 Portfolio Total:', dashboardData.portfolio_total);
-                console.log('🪙 Verfügbare Coins:', Object.keys(dashboardData.coins));
-                
-                // Zeige Erfolgsmeldung
-                setTimeout(() => {
-                    const coinCount = [...new Set(demoData.map(item => item.coin))].length;
-                    debugLog(`🎮 ${coinCount} Demo-Coins erfolgreich geladen`, 'success');
-                    updateConnectionStatus('demo', `🎮 ${coinCount} Demo-Coins erfolgreich geladen`);
-                    
-                    // Initialisiere UI falls nötig
-                    if (!document.getElementById('coinSelect').options.length) {
-                        debugLog('🎨 Initialisiere UI...', 'info');
-                        initializeUI();
-                    }
-                    debugLog('📊 Starte Dashboard-Update...', 'info');
-                    updateDashboard();
-                }, 500);
-                
-            } catch (error) {
-                debugLog(`❌ CSV-Parsing Fehler: ${error.message}`, 'error');
-                console.error('❌ Fehler beim Laden der erweiterten Demo-Daten:', error);
-                // Fallback zu alter Demo-Daten-Methode
-                debugLog('🔄 Fallback zu Standard-Demo-Daten...', 'warn');
-                console.log('🔄 Fallback zu Standard-Demo-Daten...');
-                const fallbackData = generateDemoData();
-                dashboardData = fallbackData;
-                debugLog(`📊 Fallback-Daten: ${Object.keys(dashboardData.coins).length} Coins`, 'success');
-                updateConnectionStatus('demo', '🎮 Standard Demo-Daten geladen');
-                
-                // Force UI initialization
-                setTimeout(() => {
-                    debugLog('🎨 Force-Initialisiere UI...', 'info');
-                    initializeUI();
-                    updateDashboard();
-                }, 100);
-            }
-        }
-
-        // === UI FUNKTIONEN ===
-
-        function generateDemoData() {
-            debugLog('🔧 Generiere Standard-Demo-Daten...', 'info');
-            const coins = ['Bitcoin', 'Ethereum', 'Solana', 'Cardano', 'XRP', 'Binance Coin', 'Chainlink', 'Polkadot', 'Dogecoin', 'Polygon'];
-            const data = { coins: {}, last_update: new Date().toISOString(), portfolio_total: 0 };
-            
-            coins.forEach(coinName => {
-                const basePrice = {
-                    'Bitcoin': 95000,
-                    'Ethereum': 3500,
-                    'Solana': 180,
-                    'Cardano': 0.85,
-                    'XRP': 2.1,
-                    'Binance Coin': 295,
-                    'Chainlink': 15,
-                    'Polkadot': 7.35,
-                    'Dogecoin': 0.085,
-                    'Polygon': 0.76
-                }[coinName];
-
-                const coinData = {
-                    dates: [],
-                    prices: [],
-                    rsi: [],
-                    sentiment: [],
-                    volume: [],
-                    portfolioValues: [],
-                    holdings: [],
-                    // Trading Signal Felder
-                    strategySignal: [],
-                    confidenceScore: [],
-                    aiRecommendation: [],
-                    newsSentiment: [],
-                    // Technische Indikatoren
-                    atr: [],
-                    atrPercentage: [],
-                    volatilityLevel: [],
-                    stopLoss: [],
-                    stochK: [],
-                    stochD: [],
-                    williamsR: [],
-                    macdSignal: [],
-                    maTrend: [],
-                    newsCategory: []
-                };
-
-                let currentPrice = basePrice;
-                
-                // Generiere 30 Tage Daten
-                for (let i = 30; i >= 0; i--) {
-                    const date = new Date();
-                    date.setDate(date.getDate() - i);
-                    
-                    coinData.dates.push(date.toISOString().split('T')[0]);
-                    
-                    // Realistische Preisbewegung
-                    const volatility = coinName === 'Bitcoin' ? 0.03 : 0.05;
-                    const change = (Math.random() - 0.5) * volatility;
-                    currentPrice *= (1 + change);
-                    coinData.prices.push(currentPrice);
-                    
-                    // RSI
-                    coinData.rsi.push(30 + Math.random() * 40);
-                    
-                    // Sentiment
-                    coinData.sentiment.push((Math.random() - 0.5) * 10);
-                    
-                    // Volume
-                    coinData.volume.push(0.5 + Math.random() * 2);
-                    
-                    // Portfolio und Holdings
-                    const portfolioValue = currentPrice * Math.random() * 0.1;
-                    coinData.portfolioValues.push(portfolioValue);
-                    coinData.holdings.push(Math.random() * 10);
-                    
-                    // Trading Signals
-                    const signals = ['BUY', 'SELL', 'HOLD'];
-                    coinData.strategySignal.push(signals[Math.floor(Math.random() * signals.length)]);
-                    coinData.confidenceScore.push(0.5 + Math.random() * 0.5);
-                    
-                    const recommendations = ['Strong Buy', 'Buy', 'Hold', 'Sell', 'Strong Sell'];
-                    coinData.aiRecommendation.push(recommendations[Math.floor(Math.random() * recommendations.length)]);
-                    coinData.newsSentiment.push(['Bullish', 'Neutral', 'Bearish'][Math.floor(Math.random() * 3)]);
-                    
-                    // Technische Indikatoren
-                    coinData.atr.push(currentPrice * (0.01 + Math.random() * 0.04));
-                    coinData.atrPercentage.push(1 + Math.random() * 4);
-                    coinData.volatilityLevel.push(['🟢 Niedrig', '🟡 Mittel', '🔴 Hoch'][Math.floor(Math.random() * 3)]);
-                    coinData.stopLoss.push(currentPrice * 0.95);
-                    coinData.stochK.push(Math.random() * 100);
-                    coinData.stochD.push(Math.random() * 100);
-                    coinData.williamsR.push(-Math.random() * 100);
-                    coinData.macdSignal.push(['BUY', 'SELL', 'HOLD'][Math.floor(Math.random() * 3)]);
-                    coinData.maTrend.push(['🟢 Bullisch', '🟡 Neutral', '🔴 Bärisch'][Math.floor(Math.random() * 3)]);
-                    coinData.newsCategory.push('Markt');
-                }
-
-                data.coins[coinName] = coinData;
-            });
-
-            data.portfolio_total = Object.values(data.coins).reduce((sum, coin) => 
-                sum + coin.prices[coin.prices.length - 1] * Math.random() * 0.01, 0);
-
-            debugLog(`✅ Standard-Demo-Daten generiert: ${Object.keys(data.coins).length} Coins`, 'success');
-            debugLog(`💰 Portfolio Total: €${data.portfolio_total.toLocaleString('de-DE')}`, 'data');
-            return data;
-        }
-
-        function updateKPIs(coinData) {
-            const currentPrice = coinData.prices[coinData.prices.length - 1];
-            const previousPrice = coinData.prices[coinData.prices.length - 2];
-            const priceChange = ((currentPrice - previousPrice) / previousPrice * 100);
-            
-            // Preis Update
-            document.getElementById('currentPrice').textContent = 
-                '€' + currentPrice.toLocaleString('de-DE', {maximumFractionDigits: 2});
-            
-            const priceChangeEl = document.getElementById('priceChange');
-            priceChangeEl.textContent = (priceChange >= 0 ? '+' : '') + priceChange.toFixed(2) + '% (24h)';
-            priceChangeEl.className = 'kpi-change ' + (priceChange >= 0 ? 'positive' : 'negative');
-            
-            // RSI Update
-            const currentRSI = coinData.rsi[coinData.rsi.length - 1];
-            document.getElementById('currentRSI').textContent = currentRSI.toFixed(0);
-            
-            const rsiStatus = document.getElementById('rsiStatus');
-            if (currentRSI > 70) {
-                rsiStatus.textContent = 'Überkauft';
-                rsiStatus.className = 'kpi-change negative';
-            } else if (currentRSI < 30) {
-                rsiStatus.textContent = 'Überverkauft';
-                rsiStatus.className = 'kpi-change positive';
-            } else {
-                rsiStatus.textContent = 'Neutral';
-                rsiStatus.className = 'kpi-change neutral';
-            }
-            
-            // ATR Volatilität Update (NEUE FUNKTION)
-            if (coinData.atrPercentage && coinData.atrPercentage.length > 0) {
-                const currentATR = coinData.atrPercentage[coinData.atrPercentage.length - 1];
-                const volatilityLevel = coinData.volatilityLevel[coinData.volatilityLevel.length - 1] || '🟡 Mittel';
-                
-                document.getElementById('currentATR').textContent = currentATR.toFixed(1) + '%';
-                document.getElementById('volatilityLevel').textContent = volatilityLevel;
-                
-                // Volatilitäts-Level Farben
-                const volatilityEl = document.getElementById('volatilityLevel');
-                if (volatilityLevel.includes('Extrem')) {
-                    volatilityEl.className = 'kpi-change volatility-high';
-                } else if (volatilityLevel.includes('Hoch')) {
-                    volatilityEl.className = 'kpi-change volatility-medium';
-                } else if (volatilityLevel.includes('Niedrig')) {
-                    volatilityEl.className = 'kpi-change volatility-low';
+                // Verarbeite die Demo-Daten
+                if (parsedData && parsedData.length > 0) {
+                    processMarketData(parsedData);
+                    debugLog('📊 Demo-Daten erfolgreich verarbeitet', 'success');
                 } else {
-                    volatilityEl.className = 'kpi-change neutral';
+                    throw new Error('Keine gültigen Daten nach dem Parsing gefunden');
                 }
+            } catch (error) {
+                console.error('Fehler beim Laden der Demo-Daten:', error);
+                debugLog(`❌ Fehler beim Laden der Demo-Daten: ${error.message}`, 'error');
             }
             
-            // MA Trend Update (erweitert)
-            const maTrend = coinData.maTrend && coinData.maTrend.length > 0 ? 
-                coinData.maTrend[coinData.maTrend.length - 1] : '🟡 Neutral';
-            const recentPrices = coinData.prices.slice(-5);
-            const basicTrend = recentPrices[recentPrices.length - 1] > recentPrices[0] ? 'Aufwärts' : 'Abwärts';
-            
-            document.getElementById('currentTrend').textContent = 
-                (basicTrend === 'Aufwärts' ? '↗️' : '↘️') + ' ' + basicTrend;
-            
-            const trendStrengthEl = document.getElementById('trendStrength');
-            if (maTrend.includes('Golden Cross')) {
-                trendStrengthEl.textContent = '⭐ Golden Cross';
-                trendStrengthEl.className = 'kpi-change positive';
-            } else if (maTrend.includes('Death Cross')) {
-                trendStrengthEl.textContent = '💀 Death Cross';
-                trendStrengthEl.className = 'kpi-change negative';
-            } else if (maTrend.includes('Aufwärtstrend')) {
-                trendStrengthEl.textContent = '🟢 Bullisch';
-                trendStrengthEl.className = 'kpi-change positive';
-            } else if (maTrend.includes('Abwärtstrend')) {
-                trendStrengthEl.textContent = '🔴 Bärisch';
-                trendStrengthEl.className = 'kpi-change negative';
-            } else {
-                trendStrengthEl.textContent = '🟡 Neutral';
-                trendStrengthEl.className = 'kpi-change neutral';
-            }
-            
-            // News Sentiment Update (erweitert)
-            const currentSentiment = coinData.sentiment[coinData.sentiment.length - 1];
-            const sentimentEmoji = currentSentiment >= 5 ? '🚀' : currentSentiment >= 2 ? '😊' : 
-                                 currentSentiment >= -2 ? '😐' : currentSentiment >= -5 ? '😞' : '😨';
-            const newsCategory = coinData.newsCategory && coinData.newsCategory.length > 0 ? 
-                               coinData.newsCategory[coinData.newsCategory.length - 1] : 'Keine News';
-            
-            document.getElementById('currentSentiment').textContent = sentimentEmoji + ' ' + (currentSentiment > 0 ? '+' : '') + currentSentiment.toFixed(1);
-            document.getElementById('sentimentCategory').textContent = newsCategory;
-            document.getElementById('sentimentCategory').className = 'kpi-change ' + 
-                (currentSentiment > 2 ? 'positive' : currentSentiment < -2 ? 'negative' : 'neutral');
-            
-            // Stop-Loss Empfehlung Update (NEU)
-            if (coinData.stopLoss && coinData.stopLoss.length > 0) {
-                const stopLossPrice = coinData.stopLoss[coinData.stopLoss.length - 1];
-                const stopLossDistance = ((currentPrice - stopLossPrice) / currentPrice * 100);
-                
-                document.getElementById('stopLossPrice').textContent = '€' + stopLossPrice.toLocaleString('de-DE', {maximumFractionDigits: 0});
-                document.getElementById('stopLossInfo').textContent = '-' + stopLossDistance.toFixed(1) + '% (-2×ATR)';
-            }
-            
-            // Volumen Update (erweitert)
-            const currentVolume = coinData.volume[coinData.volume.length - 1];
-            const volumeText = currentVolume > 3 ? '🔥 Extrem' : currentVolume > 1.5 ? '� Hoch' : 
-                              currentVolume > 0.8 ? '➡️ Normal' : '� Niedrig';
-            const volumePercentage = ((currentVolume - 1) * 100);
-            
-            document.getElementById('currentVolume').textContent = volumeText;
-            document.getElementById('volumeStatus').textContent = (volumePercentage > 0 ? '+' : '') + volumePercentage.toFixed(0) + '%';
-            document.getElementById('volumeStatus').className = 'kpi-change ' + 
-                (volumePercentage > 50 ? 'positive' : volumePercentage < -20 ? 'negative' : 'neutral');
-            
-            // Fear & Greed Index (Platzhalter - könnte von API kommen)
-            // Hier würde normalerweise ein API-Call die echten Daten liefern
-            document.getElementById('fearGreedValue').textContent = '😊 65';
-            document.getElementById('fearGreedLevel').textContent = 'Greed';
-            document.getElementById('fearGreedLevel').className = 'kpi-change positive';
-            
-            // TRADING EMPFEHLUNGEN UPDATE (NEU)
-            updateTradingSignals(coinData);
+            // Aktualisiere die Anzeige mit den geladenen Daten
+            updateDashboardDisplay();
         }
 
-        function processDemoData(data) {
-            console.log('🎮 Verarbeite Demo-Daten:', data.length, 'Einträge');
+        function updateDashboardDisplay() {
+            debugLog('🔄 Aktualisiere Dashboard-Anzeige...', 'info');
             
-            const coins = {};
-            let portfolio_total = 0;
+            if (!dashboardData || !dashboardData.coins) {
+                debugLog('❌ Keine Dashboard-Daten zum Anzeigen!', 'error');
+                return;
+            }
             
-            // Gruppiere Daten nach Coin
-            data.forEach(row => {
-                const coinName = row.coin;
-                if (!coinName) return;
+            debugLog(`📊 Verfügbare Coins: ${Object.keys(dashboardData.coins).length}`, 'data');
+            debugLog(`💰 Portfolio Total: €${dashboardData.portfolio_total.toLocaleString('de-DE')}`, 'data');
+            
+            // Initialisiere UI mit den geladenen Daten
+            initializeUI();
+            updateDashboard();
+        }
+            
+            // Header
+            DOM.portfolioTotal.textContent = `€${dashboardData.portfolio_total.toFixed(2)}`;
+            DOM.lastUpdate.textContent = new Date(dashboardData.last_update).toLocaleString('de-DE');
+            
+            // KPI Werte
+            DOM.currentPrice.textContent = `€${dashboardData.coins[DOM.coinSelect.value].prices[0].toFixed(2)}`;
+            DOM.priceChange.textContent = `${((dashboardData.coins[DOM.coinSelect.value].prices[0] - dashboardData.coins[DOM.coinSelect.value].prices[1]) / dashboardData.coins[DOM.coinSelect.value].prices[1] * 100).toFixed(2)}%`;
+            DOM.currentRSI.textContent = dashboardData.coins[DOM.coinSelect.value].rsi[0].toFixed(2);
+            DOM.rsiStatus.textContent = getRSIStatus(dashboardData.coins[DOM.coinSelect.value].rsi[0]);
+            DOM.currentATR.textContent = `${dashboardData.coins[DOM.coinSelect.value].atr[0].toFixed(2)}%`;
+            DOM.volatilityLevel.textContent = getVolatilityLevel(dashboardData.coins[DOM.coinSelect.value].atr[0]);
+            DOM.currentTrend.textContent = getTrendDirection(dashboardData.coins[DOM.coinSelect.value].maTrend[0]);
+            DOM.trendStrength.textContent = dashboardData.coins[DOM.coinSelect.value].maTrend[0];
+            DOM.currentSentiment.textContent = `😊 ${dashboardData.coins[DOM.coinSelect.value].sentiment[0].toFixed(2)}`;
+            DOM.sentimentCategory.textContent = getSentimentCategory(dashboardData.coins[DOM.coinSelect.value].sentiment[0]);
+            DOM.stopLossPrice.textContent = `€${dashboardData.coins[DOM.coinSelect.value].stopLoss[0].toFixed(2)}`;
+            DOM.stopLossInfo.textContent = `-${dashboardData.coins[DOM.coinSelect.value].atr[0].toFixed(2)}x ATR`;
+            DOM.currentVolume.textContent = `📈 ${dashboardData.coins[DOM.coinSelect.value].volume[0].toFixed(2)}%`;
+            DOM.volumeStatus.textContent = getVolumeStatus(dashboardData.coins[DOM.coinSelect.value].volume[0]);
+            DOM.fearGreedValue.textContent = `😊 ${dashboardData.coins[DOM.coinSelect.value].sentiment[0].toFixed(2)}`;
+            DOM.fearGreedLevel.textContent = getFearGreedLevel(dashboardData.coins[DOM.coinSelect.value].sentiment[0]);
+            
+            // Trading Signal KPI
+            const tradingSignal = getTradingSignal(dashboardData.coins[DOM.coinSelect.value]);
+            DOM.tradingSignal.textContent = tradingSignal.signal;
+            DOM.signalConfidence.textContent = `${tradingSignal.confidence}% Konfidenz`;
+            
+            // AI Empfehlung
+            const aiRecommendation = getAIRecommendation(dashboardData.coins[DOM.coinSelect.value]);
+            DOM.aiRecommendation.textContent = aiRecommendation.recommendation;
+            DOM.aiReason.textContent = aiRecommendation.reason;
+            
+            // Market Overview
+            DOM.marketSentiment.textContent = getMarketSentiment(dashboardData.coins);
+            DOM.totalCoins.textContent = Object.keys(dashboardData.coins).length;
+            DOM.avgChange.textContent = `${getAverageChange(dashboardData.coins).toFixed(2)}%`;
+            DOM.topPerformer.textContent = getTopPerformer(dashboardData.coins);
+            
+            // Update Charts
+            updateMainChart(dashboardData.coins[DOM.coinSelect.value]);
+            updatePortfolioChart(dashboardData.coins);
+            updateRSIChart(dashboardData.coins[DOM.coinSelect.value]);
+            updateATRChart(dashboardData.coins[DOM.coinSelect.value]);
+            updateVolumeChart(dashboardData.coins[DOM.coinSelect.value]);
+            
+            debugLog('✅ Dashboard-Anzeige aktualisiert', 'success');
+        }
+
+        // === EVENT LISTENERS ===
+        function setupEventListeners() {
+            DOM.coinSelect.addEventListener('change', (e) => {
+                const selectedCoin = e.target.value;
+                debugLog(`🪙 Coin gewechselt: ${selectedCoin}`, 'info');
                 
-                if (!coins[coinName]) {
-                    coins[coinName] = {
-                        prices: [],
-                        dates: [],
-                        rsi: [],
-                        sentiment: [],
-                        volume: [],
-                        portfolioValues: [],
-                        holdings: [],
-                        // Trading Signal Felder
-                        strategySignal: [],
-                        confidenceScore: [],
-                        aiRecommendation: [],
-                        newsSentiment: [],
-                        // Technische Indikatoren
-                        atr: [],
-                        atrPercentage: [],
-                        volatilityLevel: [],
-                        stopLoss: [],
-                        stochK: [],
-                        stochD: [],
-                        williamsR: [],
-                        macdSignal: [],
-                        // Moving Averages und Trend
-                        maTrend: [],
-                        newsCategory: []
-                    };
-                }
-                
-                const coinData = coins[coinName];
-                
-                // Basis-Daten
-                coinData.dates.push(row.timestamp || new Date().toISOString());
-                coinData.prices.push(parseFloat(row.current_price || 0));
-                coinData.rsi.push(parseFloat(row.rsi || 50));
-                
-                // News Sentiment als Zahl interpretieren
-                const sentimentValue = isNaN(parseFloat(row.news_sentiment)) ? 
-                    (row.news_sentiment === 'Bullish' ? 3 : row.news_sentiment === 'Bearish' ? -3 : 0) : 
-                    parseFloat(row.news_sentiment);
-                coinData.sentiment.push(sentimentValue);
-                
-                coinData.volume.push(parseFloat(row.volume_24h || 1000000000) / 1000000000); // Normalisiert
-                coinData.portfolioValues.push(parseFloat(row.portfolio_value || 0));
-                coinData.holdings.push(parseFloat(row.portfolio_weight || 0));
-                
-                // Trading Signal Daten
-                coinData.strategySignal.push(row.strategy_signal || 'HOLD');
-                coinData.confidenceScore.push(parseFloat(row.confidence_score || 0.5));
-                coinData.aiRecommendation.push(row.ai_recommendation || 'Hold');
-                coinData.newsSentiment.push(row.news_sentiment || 'Neutral');
-                
-                // Technische Indikatoren
-                coinData.atr.push(parseFloat(row.atr || 0));
-                coinData.atrPercentage.push(parseFloat(row.atr || 0) / parseFloat(row.current_price || 1) * 100);
-                coinData.volatilityLevel.push('🟡 Mittel'); // Default
-                coinData.stopLoss.push(parseFloat(row.stop_loss || 0));
-                coinData.stochK.push(parseFloat(row.stoch_k || 50));
-                coinData.stochD.push(parseFloat(row.stoch_d || 50));
-                coinData.williamsR.push(parseFloat(row.williams_r || -50));
-                coinData.macdSignal.push(row.macd_signal || 'HOLD');
-                
-                // Trend-Analyse basierend auf Empfehlung
-                const trendAnalysis = row.ai_recommendation === 'Strong Buy' ? '⭐ Golden Cross' :
-                                     row.ai_recommendation === 'Buy' ? '🟢 Bullisch' :
-                                     row.ai_recommendation === 'Sell' ? '🔴 Bärisch' : '🟡 Neutral';
-                coinData.maTrend.push(trendAnalysis);
-                coinData.newsCategory.push('Markt');
-                
-                // Portfolio Total berechnen
-                portfolio_total += parseFloat(row.portfolio_value || 0);
+                // Update Dashboard mit neuen Coin-Daten
+                updateDashboardDisplay();
             });
             
-            console.log('✅ Demo-Daten verarbeitet:', Object.keys(coins).length, 'Coins');
-            console.log('💰 Portfolio Total:', portfolio_total.toLocaleString('de-DE', {style: 'currency', currency: 'EUR'}));
-            
-            return {
-                coins: coins,
-                portfolio_total: portfolio_total,
-                last_update: new Date().toISOString()
-            };
+            DOM.refreshBtn.addEventListener('click', () => {
+                debugLog('🔄 Manuelles Aktualisieren der Daten...', 'info');
+                loadDashboardData();
+            });
         }
 
-        function updateTradingSignals(coinData) {
-            // Trading Signal aus den Daten extrahieren (strategy_signal)
-            const tradingSignal = coinData.strategySignal && coinData.strategySignal.length > 0 ? 
-                coinData.strategySignal[coinData.strategySignal.length - 1] : 'HOLD';
+        // === CHARTS INITIALISIEREN ===
+        function initializeCharts() {
+            const ctx = DOM.mainChart.getContext('2d');
+            const ctxPortfolio = DOM.portfolioChart.getContext('2d');
+            const ctxRSI = DOM.rsiChart.getContext('2d');
+            const ctxATR = DOM.atrChart.getContext('2d');
+            const ctxVolume = DOM.volumeChart.getContext('2d');
             
-            const confidence = coinData.confidenceScore && coinData.confidenceScore.length > 0 ?
-                coinData.confidenceScore[coinData.confidenceScore.length - 1] : 0.5;
-            
-            // AI Empfehlung aus den Daten extrahieren
-            const aiRecommendation = coinData.aiRecommendation && coinData.aiRecommendation.length > 0 ?
-                coinData.aiRecommendation[coinData.aiRecommendation.length - 1] : 'Hold';
-            
-            const newsSentiment = coinData.newsSentiment && coinData.newsSentiment.length > 0 ?
-                coinData.newsSentiment[coinData.newsSentiment.length - 1] : 'Neutral';
-            
-            // Trading Signal anzeigen
-            const tradingSignalEl = document.getElementById('tradingSignal');
-            const confidenceEl = document.getElementById('signalConfidence');
-            
-            switch(tradingSignal.toUpperCase()) {
-                case 'BUY':
-                    tradingSignalEl.textContent = '💚 BUY';
-                    tradingSignalEl.className = 'kpi-value trading-signal-buy';
-                    confidenceEl.className = 'kpi-change positive';
-                    break;
-                case 'SELL':
-                    tradingSignalEl.textContent = '❤️ SELL';
-                    tradingSignalEl.className = 'kpi-value trading-signal-sell';
-                    confidenceEl.className = 'kpi-change negative';
-                    break;
-                case 'HOLD':
-                default:
-                    tradingSignalEl.textContent = '🟡 HOLD';
-                    tradingSignalEl.className = 'kpi-value trading-signal-hold';
-                    confidenceEl.className = 'kpi-change neutral';
-                    break;
-            }
-            
-            confidenceEl.textContent = Math.round(confidence * 100) + '% Konfidenz';
-            
-            // AI Empfehlung anzeigen
-            const aiRecommendationEl = document.getElementById('aiRecommendation');
-            const aiReasonEl = document.getElementById('aiReason');
-            
-            aiRecommendationEl.textContent = aiRecommendation;
-            aiReasonEl.textContent = newsSentiment;
-            
-            // Farbe basierend auf Empfehlung
-            if (aiRecommendation.toLowerCase().includes('buy')) {
-                aiRecommendationEl.className = 'kpi-value trading-signal-buy';
-                aiReasonEl.className = 'kpi-change positive';
-            } else if (aiRecommendation.toLowerCase().includes('sell')) {
-                aiRecommendationEl.className = 'kpi-value trading-signal-sell';
-                aiReasonEl.className = 'kpi-change negative';
-            } else {
-                aiRecommendationEl.className = 'kpi-value trading-signal-hold';
-                aiReasonEl.className = 'kpi-change neutral';
-            }
-        }
-
-        function updateCharts(coinData) {
-            updateMainChart(coinData);
-            updatePortfolioChart();
-            updateRSIChart(coinData);
-            updateATRChart(coinData);  // NEUE ATR CHART FUNKTION
-            updateVolumeChart(coinData);
-        }
-
-        function updateMainChart(coinData) {
-            const ctx = document.getElementById('mainChart').getContext('2d');
-            
-            if (charts.main) {
-                charts.main.destroy();
-            }
-
-            const sliceIndex = Math.max(0, coinData.dates.length - currentTimeRange);
-            
-            charts.main = new Chart(ctx, {
+            // Hauptchart - Preisentwicklung & Technische Indikatoren
+            new Chart(ctx, {
                 type: 'line',
                 data: {
-                    labels: coinData.dates.slice(sliceIndex),
-                    datasets: [{
-                        label: 'Preis (€)',
-                        data: coinData.prices.slice(sliceIndex),
-                        borderColor: '#667eea',
-                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
-                        fill: true,
-                        tension: 0.4
-                    }]
+                    labels: [], // Zeitstempel
+                    datasets: [
+                        {
+                            label: 'Preis in €',
+                            data: [], // Preis-Daten
+                            borderColor: '#667eea',
+                            backgroundColor: 'rgba(102, 126, 234, 0.2)',
+                            borderWidth: 2,
+                            fill: true
+                        },
+                        {
+                            label: 'RSI',
+                            data: [], // RSI-Daten
+                            borderColor: '#f59e0b',
+                            backgroundColor: 'rgba(245, 158, 11, 0.2)',
+                            borderWidth: 2,
+                            fill: true
+                        },
+                        {
+                            label: 'ATR Volatilität',
+                            data: [], // ATR-Daten
+                            borderColor: '#48bb78',
+                            backgroundColor: 'rgba(72, 187, 120, 0.2)',
+                            borderWidth: 2,
+                            fill: true
+                        }
+                    ]
                 },
                 options: {
                     responsive: true,
-                    maintainAspectRatio: false,
                     plugins: {
                         legend: {
-                            display: false
+                            position: 'top',
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
                         }
+                    },
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
                     },
                     scales: {
                         x: {
-                            display: false
+                            type: 'time',
+                            time: {
+                                unit: 'day',
+                                tooltipFormat: 'DD.MM.YYYY',
+                                displayFormats: {
+                                    day: 'DD.MM.',
+                                    month: 'MMM YYYY'
+                                }
+                            },
+                            title: {
+                                display: true,
+                                text: 'Datum'
+                            }
                         },
                         y: {
                             title: {
                                 display: true,
-                                text: 'Preis (€)'
+                                text: 'Wert in €'
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    return '€' + value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+                                }
                             }
                         }
                     }
                 }
             });
-        }
-
-        function updatePortfolioChart() {
-            const ctx = document.getElementById('portfolioChart').getContext('2d');
             
-            if (charts.portfolio) {
-                charts.portfolio.destroy();
-            }
-
-            // Verwende echte Portfolio-Historie wenn verfügbar
-            let portfolioData = [];
-            let dates = [];
-            
-            if (dashboardData.portfolio_history && dashboardData.portfolio_history.length > 0) {
-                // Echte Daten aus Google Sheets
-                dates = dashboardData.portfolio_history.map(h => h.date);
-                portfolioData = dashboardData.portfolio_history.map(h => h.value);
-            } else {
-                // Fallback: Generiere Portfolio-Historie basierend auf aktuellen Coin-Daten
-                const coinDates = dashboardData.coins[currentCoin]?.dates || [];
-                dates = coinDates;
-                
-                coinDates.forEach((date, index) => {
-                    let totalValue = 0;
-                    Object.values(dashboardData.coins).forEach(coin => {
-                        if (coin.portfolioValues && coin.portfolioValues[index]) {
-                            totalValue += coin.portfolioValues[index];
-                        } else if (coin.prices && coin.prices[index]) {
-                            // Fallback für Demo-Daten
-                            totalValue += coin.prices[index] * Math.random() * 0.001;
-                        }
-                    });
-                    portfolioData.push(totalValue);
-                });
-            }
-
-            const sliceIndex = Math.max(0, dates.length - currentTimeRange);
-            
-            charts.portfolio = new Chart(ctx, {
-                type: 'line',
+            // Portfolio Chart - Wertentwicklung
+            new Chart(ctxPortfolio, {
+                type: 'bar',
                 data: {
-                    labels: dates.slice(sliceIndex),
-                    datasets: [{
-                        label: 'Portfolio-Wert (€)',
-                        data: portfolioData.slice(sliceIndex),
-                        borderColor: '#8b5cf6',
-                        backgroundColor: 'rgba(139, 92, 246, 0.1)',
-                        fill: true,
-                        tension: 0.4
-                    }]
+                    labels: [], // Zeitstempel
+                    datasets: [
+                        {
+                            label: 'Portfolio Wert in €',
+                            data: [], // Portfolio-Wert-Daten
+                            backgroundColor: '#667eea',
+                            borderColor: '#4a5568',
+                            borderWidth: 2
+                        }
+                    ]
                 },
                 options: {
                     responsive: true,
-                    maintainAspectRatio: false,
                     plugins: {
                         legend: {
-                            display: false
+                            position: 'top',
                         },
                         tooltip: {
                             callbacks: {
-                                label: function(context) {
-                                    return 'Portfolio: €' + context.parsed.y.toLocaleString('de-DE', {maximumFractionDigits: 2});
+                                label: function(tooltipItem) {
+                                    return '€' + tooltipItem.raw.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
                                 }
                             }
                         }
                     },
                     scales: {
                         x: {
-                            display: false
+                            type: 'time',
+                            time: {
+                                unit: 'day',
+                                tooltipFormat: 'DD.MM.YYYY',
+                                displayFormats: {
+                                    day: 'DD.MM.',
+                                    month: 'MMM YYYY'
+                                }
+                            },
+                            title: {
+                                display: true,
+                                text: 'Datum'
+                            }
                         },
                         y: {
                             title: {
                                 display: true,
-                                text: 'Wert (€)'
+                                text: 'Wert in €'
                             },
                             ticks: {
                                 callback: function(value) {
-                                    return '€' + value.toLocaleString('de-DE', {maximumFractionDigits: 0});
+                                    return '€' + value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // RSI Chart
+            new Chart(ctxRSI, {
+                type: 'line',
+                data: {
+                    labels: [], // Zeitstempel
+                    datasets: [
+                        {
+                            label: 'RSI',
+                            data: [], // RSI-Daten
+                            borderColor: '#f59e0b',
+                            backgroundColor: 'rgba(245, 158, 11, 0.2)',
+                            borderWidth: 2,
+                            fill: true
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                        }
+                    },
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    },
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: {
+                                unit: 'day',
+                                tooltipFormat: 'DD.MM.YYYY',
+                                displayFormats: {
+                                    day: 'DD.MM.',
+                                    month: 'MMM YYYY'
+                                }
+                            },
+                            title: {
+                                display: true,
+                                text: 'Datum'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'RSI'
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // ATR Chart
+            new Chart(ctxATR, {
+                type: 'line',
+                data: {
+                    labels: [], // Zeitstempel
+                    datasets: [
+                        {
+                            label: 'ATR Volatilität',
+                            data: [], // ATR-Daten
+                            borderColor: '#48bb78',
+                            backgroundColor: 'rgba(72, 187, 120, 0.2)',
+                            borderWidth: 2,
+                            fill: true
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                        }
+                    },
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    },
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: {
+                                unit: 'day',
+                                tooltipFormat: 'DD.MM.YYYY',
+                                displayFormats: {
+                                    day: 'DD.MM.',
+                                    month: 'MMM YYYY'
+                                }
+                            },
+                            title: {
+                                display: true,
+                                text: 'Datum'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'ATR Volatilität'
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // Volume Chart
+            new Chart(ctxVolume, {
+                type: 'line',
+                data: {
+                    labels: [], // Zeitstempel
+                    datasets: [
+                        {
+                            label: 'Volumen-Analyse',
+                            data: [], // Volumen-Daten
+                            borderColor: '#667eea',
+                            backgroundColor: 'rgba(102, 126, 234, 0.2)',
+                            borderWidth: 2,
+                            fill: true
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                        }
+                    },
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    },
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: {
+                                unit: 'day',
+                                tooltipFormat: 'DD.MM.YYYY',
+                                displayFormats: {
+                                    day: 'DD.MM.',
+                                    month: 'MMM YYYY'
+                                }
+                            },
+                            title: {
+                                display: true,
+                                text: 'Datum'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Volumen'
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // === CHARTS UPDATEN ===
+        function updateMainChart(coinData) {
+            const ctx = DOM.mainChart.getContext('2d');
+            ctx.clearRect(0, 0, DOM.mainChart.width, DOM.mainChart.height);
+            
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: coinData.dates,
+                    datasets: [
+                        {
+                            label: 'Preis in €',
+                            data: coinData.prices,
+                            borderColor: '#667eea',
+                            backgroundColor: 'rgba(102, 126, 234, 0.2)',
+                            borderWidth: 2,
+                            fill: true
+                        },
+                        {
+                            label: 'RSI',
+                            data: coinData.rsi,
+                            borderColor: '#f59e0b',
+                            backgroundColor: 'rgba(245, 158, 11, 0.2)',
+                            borderWidth: 2,
+                            fill: true
+                        },
+                        {
+                            label: 'ATR Volatilität',
+                            data: coinData.atr,
+                            borderColor: '#48bb78',
+                            backgroundColor: 'rgba(72, 187, 120, 0.2)',
+                            borderWidth: 2,
+                            fill: true
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                        }
+                    },
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    },
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: {
+                                unit: 'day',
+                                tooltipFormat: 'DD.MM.YYYY',
+                                displayFormats: {
+                                    day: 'DD.MM.',
+                                    month: 'MMM YYYY'
+                                }
+                            },
+                            title: {
+                                display: true,
+                                text: 'Datum'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Wert in €'
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    return '€' + value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updatePortfolioChart(coins) {
+            const ctx = DOM.portfolioChart.getContext('2d');
+            ctx.clearRect(0, 0, DOM.portfolioChart.width, DOM.portfolioChart.height);
+            
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(coins).map(coin => coins[coin].dates[0]), // Zeitstempel
+                    datasets: [
+                        {
+                            label: 'Portfolio Wert in €',
+                            data: Object.keys(coins).map(coin => coins[coin].portfolioValues[0]), // Portfolio-Wert-Daten
+                            backgroundColor: '#667eea',
+                            borderColor: '#4a5568',
+                            borderWidth: 2
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(tooltipItem) {
+                                    return '€' + tooltipItem.raw.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: {
+                                unit: 'day',
+                                tooltipFormat: 'DD.MM.YYYY',
+                                displayFormats: {
+                                    day: 'DD.MM.',
+                                    month: 'MMM YYYY'
+                                }
+                            },
+                            title: {
+                                display: true,
+                                text: 'Datum'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Wert in €'
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    return '€' + value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
                                 }
                             }
                         }
@@ -2229,89 +1962,64 @@
         }
 
         function updateRSIChart(coinData) {
-            const ctx = document.getElementById('rsiChart').getContext('2d');
+            const ctx = DOM.rsiChart.getContext('2d');
+            ctx.clearRect(0, 0, DOM.rsiChart.width, DOM.rsiChart.height);
             
-            if (charts.rsi) {
-                charts.rsi.destroy();
-            }
-
-            const sliceIndex = Math.max(0, coinData.dates.length - currentTimeRange);
-            
-            charts.rsi = new Chart(ctx, {
+            new Chart(ctx, {
                 type: 'line',
                 data: {
-                    labels: coinData.dates.slice(sliceIndex),
-                    datasets: [{
-                        label: 'RSI',
-                        data: coinData.rsi.slice(sliceIndex),
-                        borderColor: '#f59e0b',
-                        backgroundColor: 'rgba(245, 158, 11, 0.1)',
-                        fill: false,
-                        tension: 0.4
-                    }]
+                    labels: coinData.dates,
+                    datasets: [
+                        {
+                            label: 'RSI',
+                            data: coinData.rsi,
+                            borderColor: '#f59e0b',
+                            backgroundColor: 'rgba(245, 158, 11, 0.2)',
+                            borderWidth: 2,
+                            fill: true
+                        }
+                    ]
                 },
                 options: {
                     responsive: true,
-                    maintainAspectRatio: false,
                     plugins: {
                         legend: {
-                            display: false
+                            position: 'top',
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
                         }
+                    },
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
                     },
                     scales: {
                         x: {
-                            display: false
+                            type: 'time',
+                            time: {
+                                unit: 'day',
+                                tooltipFormat: 'DD.MM.YYYY',
+                                displayFormats: {
+                                    day: 'DD.MM.',
+                                    month: 'MMM YYYY'
+                                }
+                            },
+                            title: {
+                                display: true,
+                                text: 'Datum'
+                            }
                         },
                         y: {
-                            min: 0,
-                            max: 100,
                             title: {
                                 display: true,
                                 text: 'RSI'
-                            }
-                        }
-                    }
-                }
-            });
-        }
-
-        function updateVolumeChart(coinData) {
-            const ctx = document.getElementById('volumeChart').getContext('2d');
-            
-            if (charts.volume) {
-                charts.volume.destroy();
-            }
-
-            const sliceIndex = Math.max(0, coinData.dates.length - currentTimeRange);
-            
-            charts.volume = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: coinData.dates.slice(sliceIndex),
-                    datasets: [{
-                        label: 'Volumen',
-                        data: coinData.volume.slice(sliceIndex),
-                        backgroundColor: 'rgba(156, 163, 175, 0.6)',
-                        borderColor: 'rgba(156, 163, 175, 1)',
-                        borderWidth: 1
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            display: false
-                        }
-                    },
-                    scales: {
-                        x: {
-                            display: false
-                        },
-                        y: {
-                            title: {
-                                display: true,
-                                text: 'Volumen Ratio'
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+                                }
                             }
                         }
                     }
@@ -2320,442 +2028,35 @@
         }
 
         function updateATRChart(coinData) {
-            const ctx = document.getElementById('atrChart').getContext('2d');
+            const ctx = DOM.atrChart.getContext('2d');
+            ctx.clearRect(0, 0, DOM.atrChart.width, DOM.atrChart.height);
             
-            if (charts.atr) {
-                charts.atr.destroy();
-            }
-
-            const sliceIndex = Math.max(0, coinData.dates.length - currentTimeRange);
-            
-            // Prüfe ob ATR-Daten verfügbar sind
-            if (!coinData.atrPercentage || coinData.atrPercentage.length === 0) {
-                // Fallback: Zeige Platzhalter-Chart
-                charts.atr = new Chart(ctx, {
-                    type: 'line',
-                    data: {
-                        labels: coinData.dates.slice(sliceIndex),
-                        datasets: [{
-                            label: 'ATR nicht verfügbar',
-                            data: new Array(coinData.dates.slice(sliceIndex).length).fill(2.5),
-                            borderColor: '#9ca3af',
-                            backgroundColor: 'rgba(156, 163, 175, 0.1)',
-                            borderWidth: 1,
-                            borderDash: [5, 5]
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: { display: true }
-                        }
-                    }
-                });
-                return;
-            }
-            
-            charts.atr = new Chart(ctx, {
+            new Chart(ctx, {
                 type: 'line',
                 data: {
-                    labels: coinData.dates.slice(sliceIndex),
-                    datasets: [{
-                        label: 'ATR (%)',
-                        data: coinData.atrPercentage.slice(sliceIndex),
-                        borderColor: '#f59e0b',
-                        backgroundColor: 'rgba(245, 158, 11, 0.1)',
-                        borderWidth: 2,
-                        fill: true,
-                        tension: 0.4,
-                        yAxisID: 'y'
-                    }, {
-                        label: 'Extreme Volatilität (5%)',
-                        data: new Array(coinData.dates.slice(sliceIndex).length).fill(5),
-                        borderColor: '#f56565',
-                        backgroundColor: 'rgba(245, 101, 101, 0.05)',
-                        borderWidth: 1,
-                        borderDash: [5, 5],
-                        fill: false,
-                        pointRadius: 0,
-                        yAxisID: 'y'
-                    }, {
-                        label: 'Niedrige Volatilität (1%)',
-                        data: new Array(coinData.dates.slice(sliceIndex).length).fill(1),
-                        borderColor: '#48bb78',
-                        backgroundColor: 'rgba(72, 187, 120, 0.05)',
-                        borderWidth: 1,
-                        borderDash: [5, 5],
-                        fill: false,
-                        pointRadius: 0,
-                        yAxisID: 'y'
-                    }]
+                    labels: coinData.dates,
+                    datasets: [
+                        {
+                            label: 'ATR Volatilität',
+                            data: coinData.atr,
+                            borderColor: '#48bb78',
+                            backgroundColor: 'rgba(72, 187, 120, 0.2)',
+                            borderWidth: 2,
+                            fill: true
+                        }
+                    ]
                 },
                 options: {
                     responsive: true,
-                    maintainAspectRatio: false,
                     plugins: {
                         legend: {
-                            display: true,
-                            position: 'top'
+                            position: 'top',
                         },
                         tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    if (context.datasetIndex === 0) {
-                                        const volatilityLevel = coinData.volatilityLevel && coinData.volatilityLevel[context.dataIndex] ? 
-                                                              coinData.volatilityLevel[context.dataIndex] : '🟡 Mittel';
-                                        return `ATR: ${context.parsed.y.toFixed(2)}% (${volatilityLevel})`;
-                                    }
-                                    return context.dataset.label;
-                                }
-                            }
+                            mode: 'index',
+                            intersect: false,
                         }
                     },
-                    scales: {
-                        x: {
-                            display: false
-                        },
-                        y: {
-                            title: {
-                                display: true,
-                                text: 'ATR Volatilität (%)'
-                            },
-                            min: 0,
-                            max: Math.max(6, Math.max(...coinData.atrPercentage.slice(sliceIndex)) * 1.2),
-                            ticks: {
-                                callback: function(value) {
-                                    return value.toFixed(1) + '%';
-                                }
-                            }
-                        }
-                    }
-                }
-            });
-        }
-
-        function updateMarketOverview() {
-            if (!dashboardData) return;
-            
-            const coins = Object.keys(dashboardData.coins);
-            document.getElementById('totalCoins').textContent = coins.length;
-            
-            // Berechne durchschnittliche Änderung
-            let totalChange = 0;
-            let bullishCount = 0;
-            
-            coins.forEach(coinName => {
-                const coin = dashboardData.coins[coinName];
-                if (coin.prices.length >= 2) {
-                    const change = ((coin.prices[coin.prices.length - 1] - coin.prices[coin.prices.length - 2]) / coin.prices[coin.prices.length - 2]) * 100;
-                    totalChange += change;
-                    if (change > 0) bullishCount++;
-                }
-            });
-            
-            const avgChange = totalChange / coins.length;
-            const avgChangeEl = document.getElementById('avgChange');
-            avgChangeEl.textContent = (avgChange >= 0 ? '+' : '') + avgChange.toFixed(1) + '%';
-            avgChangeEl.style.color = avgChange >= 0 ? '#48bb78' : '#f56565';
-            
-            document.getElementById('marketSentiment').textContent = bullishCount > coins.length / 2 ? 'Bullisch' : 'Bärisch';
-            
-            // Top Performer
-            let topPerformer = coins[0];
-            let topPerformance = -Infinity;
-            
-            coins.forEach(coinName => {
-                const coin = dashboardData.coins[coinName];
-                if (coin.prices.length >= 2) {
-                    const change = ((coin.prices[coin.prices.length - 1] - coin.prices[coin.prices.length - 2]) / coin.prices[coin.prices.length - 2]) * 100;
-                    if (change > topPerformance) {
-                        topPerformance = change;
-                        topPerformer = coinName;
-                    }
-                }
-            });
-            
-            document.getElementById('topPerformer').textContent = topPerformer;
-        }
-
-        function updateConnectionStatus(status, message) {
-            const statusEl = document.getElementById('connectionStatus');
-            statusEl.className = 'connection-status ' + status;
-            statusEl.textContent = message;
-        }
-
-        // Coin-Dropdown mit verfügbaren Coins aktualisieren
-        function updateCoinDropdown() {
-            if (!dashboardData) return;
-            
-            const select = document.getElementById('coinSelect');
-            select.innerHTML = '';
-            
-            const settings = loadUserSettings();
-            let selectedCoinExists = false;
-            
-            Object.keys(dashboardData.coins).forEach(coinName => {
-                const option = document.createElement('option');
-                option.value = coinName;
-                option.textContent = coinName;
-                select.appendChild(option);
-                
-                if (coinName === settings.selectedCoin) {
-                    selectedCoinExists = true;
-                }
-            });
-            
-            // Setze gespeicherten Coin wenn er existiert
-            if (selectedCoinExists) {
-                select.value = settings.selectedCoin;
-                currentCoin = settings.selectedCoin;
-            } else {
-                // Fallback zum ersten verfügbaren Coin
-                const firstCoin = Object.keys(dashboardData.coins)[0];
-                if (firstCoin) {
-                    select.value = firstCoin;
-                    currentCoin = firstCoin;
-                }
-            }
-        }
-
-        // NEUE FUNKTION: Smart Alerts Update
-        function updateSmartAlerts() {
-            if (!dashboardData) return;
-            
-            const alertsContainer = document.getElementById('smartAlerts');
-            if (!alertsContainer) return;
-            
-            const alerts = [];
-            
-            // Sammle Smart Alerts aus allen Coins
-            Object.entries(dashboardData.coins).forEach(([coinName, coinData]) => {
-                if (!coinData.rsi || coinData.rsi.length === 0) return;
-                
-                const currentRSI = coinData.rsi[coinData.rsi.length - 1];
-                const currentPrice = coinData.prices[coinData.prices.length - 1];
-                const currentATR = coinData.atrPercentage ? coinData.atrPercentage[coinData.atrPercentage.length - 1] : 0;
-                const volatilityLevel = coinData.volatilityLevel ? coinData.volatilityLevel[coinData.volatilityLevel.length - 1] : '';
-                const maTrend = coinData.maTrend ? coinData.maTrend[coinData.maTrend.length - 1] : '';
-                
-                // RSI Alerts
-                if (currentRSI <= 25) {
-                    alerts.push({
-                        icon: '🟢',
-                        text: `${coinName} RSI bei ${currentRSI.toFixed(0)} - Potentielle Kaufgelegenheit!`,
-                        priority: 1
-                    });
-                } else if (currentRSI >= 75) {
-                    alerts.push({
-                        icon: '🔴',
-                        text: `${coinName} RSI bei ${currentRSI.toFixed(0)} - Überkauft!`,
-                        priority: 1
-                    });
-                }
-                
-                // ATR Volatilitäts-Alerts
-                if (currentATR > 5.0) {
-                    alerts.push({
-                        icon: '⚠️',
-                        text: `${coinName} Extreme Volatilität (${currentATR.toFixed(1)}%) - Vorsicht!`,
-                        priority: 2
-                    });
-                } else if (currentATR < 1.0) {
-                    alerts.push({
-                        icon: '😴',
-                        text: `${coinName} Sehr niedrige Volatilität (${currentATR.toFixed(1)}%) - Ausbruch möglich!`,
-                        priority: 3
-                    });
-                }
-                
-                // MA Trend Alerts
-                if (maTrend.includes('Golden Cross')) {
-                    alerts.push({
-                        icon: '⭐',
-                        text: `${coinName} Golden Cross - Bullisches Signal!`,
-                        priority: 1
-                    });
-                } else if (maTrend.includes('Death Cross')) {
-                    alerts.push({
-                        icon: '💀',
-                        text: `${coinName} Death Cross - Bärisches Signal!`,
-                        priority: 1
-                    });
-                }
-            });
-            
-            // Sortiere nach Priorität und zeige Top 5
-            alerts.sort((a, b) => a.priority - b.priority);
-            const topAlerts = alerts.slice(0, 5);
-            
-            // Update DOM
-            alertsContainer.innerHTML = '';
-            topAlerts.forEach(alert => {
-                const alertElement = document.createElement('div');
-                alertElement.className = 'insight-item';
-                alertElement.innerHTML = `
-                    <span class="insight-icon">${alert.icon}</span>
-                    <span>${alert.text}</span>
-                `;
-                alertsContainer.appendChild(alertElement);
-            });
-            
-            // Fallback wenn keine Alerts
-            if (topAlerts.length === 0) {
-                alertsContainer.innerHTML = `
-                    <div class="insight-item">
-                        <span class="insight-icon">✅</span>
-                        <span>Keine kritischen Alerts - Markt stabil</span>
-                    </div>
-                `;
-            }
-        }
-
-        // NEUE FUNKTION: News Analysis Update
-        function updateNewsAnalysis() {
-            if (!dashboardData) return;
-            
-            const newsContainer = document.getElementById('newsAnalysis');
-            if (!newsContainer) return;
-            
-            const newsItems = [];
-            
-            // Sammle News-Analysen aus allen Coins
-            Object.entries(dashboardData.coins).forEach(([coinName, coinData]) => {
-                if (!coinData.sentiment || coinData.sentiment.length === 0) return;
-                
-                const currentSentiment = coinData.sentiment[coinData.sentiment.length - 1];
-                const newsCategory = coinData.newsCategory ? coinData.newsCategory[coinData.newsCategory.length - 1] : 'Andere';
-                const newsSummary = coinData.newsSummary ? coinData.newsSummary[coinData.newsSummary.length - 1] : '';
-                const isCritical = coinData.newsCritical ? coinData.newsCritical[coinData.newsCritical.length - 1] : false;
-                
-                if (Math.abs(currentSentiment) > 1 || isCritical) { // Nur relevante News
-                    const sentimentEmoji = currentSentiment >= 5 ? '🚀' : currentSentiment >= 2 ? '😊' : 
-                                         currentSentiment >= -2 ? '😐' : currentSentiment >= -5 ? '😞' : '😨';
-                    
-                    newsItems.push({
-                        icon: isCritical ? '⚠️' : sentimentEmoji,
-                        text: `${coinName}: ${newsSummary || 'News verfügbar'} (Sentiment: ${currentSentiment > 0 ? '+' : ''}${currentSentiment})`,
-                        critical: isCritical,
-                        sentiment: currentSentiment
-                    });
-                }
-            });
-            
-            // Sortiere nach Kritisch > Sentiment
-            newsItems.sort((a, b) => {
-                if (a.critical && !b.critical) return -1;
-                if (!a.critical && b.critical) return 1;
-                return Math.abs(b.sentiment) - Math.abs(a.sentiment);
-            });
-            
-            const topNews = newsItems.slice(0, 3);
-            
-            // Update DOM
-            newsContainer.innerHTML = '';
-            topNews.forEach(news => {
-                const newsElement = document.createElement('div');
-                newsElement.className = news.critical ? 'insight-item critical' : 'insight-item';
-                newsElement.innerHTML = `
-                    <span class="insight-icon">${news.icon}</span>
-                    <span>${news.text}</span>
-                `;
-                newsContainer.appendChild(newsElement);
-            });
-            
-            // Fallback wenn keine News
-            if (topNews.length === 0) {
-                newsContainer.innerHTML = `
-                    <div class="insight-item">
-                        <span class="insight-icon">📰</span>
-                        <span>Keine aktuellen News-Analysen verfügbar</span>
-                    </div>
-                `;
-            }
-        }
-
-        // NEUE FUNKTION: Performance Metrics Update
-        function updatePerformanceMetrics() {
-            const metricsContainer = document.getElementById('performanceMetrics');
-            if (!metricsContainer) return;
-            
-            // Simuliere Performance-Daten (in echter App würden diese aus dem Backend kommen)
-            const metrics = [
-                {
-                    icon: '🚀',
-                    text: 'Parallelisierung: 6x schneller (10s statt 60s)'
-                },
-                {
-                    icon: '🤖',
-                    text: `KI-News-Analyse: ${dashboardData ? Object.keys(dashboardData.coins).length : 0}/13 Coins abgedeckt`
-                },
-                {
-                    icon: '📊',
-                    text: 'ATR-Volatilitäts-Analyse: Aktiv'
-                }
-            ];
-            
-            // Update DOM
-            metricsContainer.innerHTML = '';
-            metrics.forEach(metric => {
-                const metricElement = document.createElement('div');
-                metricElement.className = 'insight-item';
-                metricElement.innerHTML = `
-                    <span class="insight-icon">${metric.icon}</span>
-                    <span>${metric.text}</span>
-                `;
-                metricsContainer.appendChild(metricElement);
-            });
-        }
-
-        // Erweiterte updateDashboard-Funktion
-        function updateDashboard() {
-            debugLog('🔄 updateDashboard() aufgerufen', 'info');
-            console.log('🔄 updateDashboard aufgerufen');
-            console.log('📊 dashboardData:', dashboardData);
-            console.log('🎯 currentCoin:', currentCoin);
-            
-            if (!dashboardData || !dashboardData.coins[currentCoin]) {
-                debugLog(`❌ FEHLER: Keine Daten für ${currentCoin}!`, 'error');
-                console.warn('Keine Daten für', currentCoin);
-                console.log('📊 Verfügbare Coins:', dashboardData ? Object.keys(dashboardData.coins) : 'dashboardData ist null');
-                return;
-            }
-
-            const coinData = dashboardData.coins[currentCoin];
-            debugLog(`📊 Aktualisiere Dashboard für ${currentCoin}`, 'info');
-            
-            console.log('💰 Portfolio Total für Update:', dashboardData.portfolio_total);
-            debugLog(`💰 Portfolio Total: €${dashboardData.portfolio_total.toLocaleString('de-DE')}`, 'data');
-            
-            // Update Header (mit DOM-Caching)
-            DOM.portfolioTotal.textContent = 
-                '€' + dashboardData.portfolio_total.toLocaleString('de-DE', {maximumFractionDigits: 0});
-            DOM.lastUpdate.textContent = 
-                new Date(dashboardData.last_update).toLocaleTimeString('de-DE');
-
-            // Update KPIs
-            debugLog('📊 Aktualisiere KPIs...', 'info');
-            updateKPIs(coinData);
-            
-            // Update Charts
-            debugLog('📈 Aktualisiere Charts...', 'info');
-            try {
-                updateCharts(coinData);
-                debugLog('✅ Charts erfolgreich aktualisiert', 'success');
-            } catch (error) {
-                debugLog(`❌ Chart-Fehler: ${error.message}`, 'error');
-                console.error('Chart-Update Fehler:', error);
-            }
-            
-            // Update Market Overview
-            updateMarketOverview();
-            
-            // NEUE Updates für v2.0
-            updateSmartAlerts();
-            updateNewsAnalysis();
-            updatePerformanceMetrics();
-        }
-        
-    </script>
-</body>
-</html>
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
