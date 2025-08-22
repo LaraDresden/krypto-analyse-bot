@@ -14,3 +14,8 @@ google-auth>=2.17.0
 
 # Environment Configuration
 python-dotenv>=1.0.0
+
+# Performance Analysis & Monitoring
+matplotlib>=3.7.0
+seaborn>=0.12.0
+schedule>=1.2.0

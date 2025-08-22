@@ -26,7 +26,9 @@ from config import (
     PORTFOLIO_HISTORY_DAYS, get_api_credentials, validate_config
 )
 from modules.utils.logger import logger, handle_exceptions, write_health_check
-from modules.data_models import CoinAnalysisResult
+from modules.data_models import CoinAnalysisResult, MarketData, TechnicalIndicators, NewsAnalysis
+from modules.strategies.registry import StrategyRegistry
+from modules.strategies.moderate.momentum_strategy import ModerateMomentumStrategy
 
 # === TYPE DEFINITIONS ===
 # Behalte Legacy TypedDict für Übergangszeit - wird später durch data_models ersetzt
@@ -45,6 +47,162 @@ def setup_logging():
 
 # Initialisiere Logger (Legacy-Kompatibilität)
 legacy_logger = setup_logging()
+
+# === STRATEGIE-SYSTEM INITIALISIERUNG ===
+def setup_trading_strategies():
+    """Initialisiert und registriert alle verfügbaren Trading-Strategien."""
+    try:
+        # Registriere die Moderate Momentum Strategy
+        StrategyRegistry.register(
+            name="moderate_momentum",
+            strategy_class=ModerateMomentumStrategy,
+            description="MACD + Bollinger Band Momentum Strategy mit Volume-Bestätigung",
+            category="moderate"
+        )
+        
+        logger.info("✅ Trading-Strategien erfolgreich initialisiert")
+        return True
+    except Exception as e:
+        logger.error(f"❌ Fehler bei Strategie-Initialisierung: {e}")
+        return False
+
+# Initialisiere Strategien
+strategy_system_ready = setup_trading_strategies()
+
+def generate_trading_signals(coin_data: dict) -> dict:
+    """
+    Generiert BUY/SELL/HOLD Empfehlungen basierend auf technischen Daten.
+    
+    Returns:
+        dict: {
+            'signal': 'BUY'/'SELL'/'HOLD',
+            'confidence': float (0.0-1.0),
+            'reasoning': str,
+            'strategy_name': str
+        }
+    """
+    if coin_data.get('error') or not strategy_system_ready:
+        return {
+            'signal': 'HOLD',
+            'confidence': 0.0,
+            'reasoning': 'Keine Daten verfügbar',
+            'strategy_name': 'fallback'
+        }
+    
+    try:
+        # Erstelle MarketData Objekt für die Strategie
+        market_data = MarketData(
+            symbol=coin_data.get('name', 'UNKNOWN'),
+            price=coin_data.get('price', 0.0),
+            volume=coin_data.get('volume_24h', 0.0),
+            timestamp=datetime.now(),
+            high_24h=coin_data.get('high_24h', coin_data.get('price', 0.0)),
+            low_24h=coin_data.get('low_24h', coin_data.get('price', 0.0)),
+            change_24h=coin_data.get('price_change_24h_percent', 0.0)
+        )
+        
+        # Erstelle TechnicalIndicators Objekt
+        tech_indicators = TechnicalIndicators(
+            rsi=coin_data.get('rsi', 50.0),
+            macd=coin_data.get('macd', 0.0),
+            macd_signal=coin_data.get('macd_signal', 0.0),
+            macd_histogram=coin_data.get('macd_histogram', 0.0),
+            ma20=coin_data.get('sma_20', coin_data.get('price', 0.0)),
+            ma50=coin_data.get('sma_50', coin_data.get('price', 0.0)),
+            ma200=coin_data.get('sma_200', coin_data.get('price', 0.0)),
+            bb_upper=coin_data.get('bb_upper', 0.0),
+            bb_lower=coin_data.get('bb_lower', 0.0),
+            bb_position=coin_data.get('bb_position', 50.0),
+            atr=coin_data.get('atr', 0.0),
+            atr_percentage=coin_data.get('atr_percentage', 0.0),
+            volume_ratio=coin_data.get('volume_ratio', 1.0),
+            stoch_k=coin_data.get('stoch_k', 50.0),
+            williams_r=coin_data.get('williams_r', -50.0)
+        )
+        
+        # Erstelle News-Analyse Objekt (falls vorhanden)
+        news_analysis = None
+        if coin_data.get('news_analyse'):
+            news_data = coin_data['news_analyse']
+            news_analysis = NewsAnalysis(
+                sentiment_score=news_data.get('sentiment_score', 0),
+                category=news_data.get('kategorie', 'neutral'),
+                summary=news_data.get('zusammenfassung', ''),
+                is_critical=news_data.get('kritisch', False),
+                confidence=0.8,  # Standard-Konfidenz für News
+                articles_count=1  # Vereinfachung
+            )
+        
+        # Hole die Strategie-Instanz
+        strategy = StrategyRegistry.get_instance("moderate_momentum")
+        if not strategy:
+            logger.warning("⚠️ Moderate Momentum Strategy nicht verfügbar, verwende Fallback")
+            return generate_fallback_signal(coin_data)
+        
+        # Generiere Trading-Entscheidung
+        decision = strategy.analyze(coin_data.get('name', 'UNKNOWN'), market_data, tech_indicators, news_analysis)
+        
+        return {
+            'signal': decision.signal.value,
+            'confidence': decision.confidence,
+            'reasoning': decision.reasoning,
+            'strategy_name': 'moderate_momentum'
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ Fehler bei Signal-Generierung für {coin_data.get('name', 'UNKNOWN')}: {e}")
+        return generate_fallback_signal(coin_data)
+
+def generate_fallback_signal(coin_data: dict) -> dict:
+    """
+    Fallback-Signal-Generierung basierend auf einfachen technischen Regeln.
+    """
+    try:
+        rsi = coin_data.get('rsi', 50.0)
+        macd_hist = coin_data.get('macd_histogram', 0.0)
+        bb_position = coin_data.get('bb_position', 50.0)
+        
+        # Einfache Signal-Logik
+        signals = []
+        
+        # RSI Signale
+        if rsi < 30:
+            signals.append(('BUY', 0.7, 'RSI überverkauft'))
+        elif rsi > 70:
+            signals.append(('SELL', 0.7, 'RSI überkauft'))
+        
+        # MACD Signale
+        if macd_hist > 0.001:
+            signals.append(('BUY', 0.6, 'MACD bullish'))
+        elif macd_hist < -0.001:
+            signals.append(('SELL', 0.6, 'MACD bearish'))
+        
+        # Bollinger Band Signale
+        if bb_position < 20:
+            signals.append(('BUY', 0.5, 'BB unterstes Band'))
+        elif bb_position > 80:
+            signals.append(('SELL', 0.5, 'BB oberstes Band'))
+        
+        # Bestimme finales Signal
+        if not signals:
+            return {'signal': 'HOLD', 'confidence': 0.3, 'reasoning': 'Neutrale Signale', 'strategy_name': 'fallback'}
+        
+        # Gewichte Signale
+        buy_score = sum(conf for sig, conf, _ in signals if sig == 'BUY')
+        sell_score = sum(conf for sig, conf, _ in signals if sig == 'SELL')
+        
+        if buy_score > sell_score and buy_score > 0.5:
+            reasoning = '; '.join([reason for sig, _, reason in signals if sig == 'BUY'])
+            return {'signal': 'BUY', 'confidence': min(buy_score, 0.9), 'reasoning': reasoning, 'strategy_name': 'fallback'}
+        elif sell_score > buy_score and sell_score > 0.5:
+            reasoning = '; '.join([reason for sig, _, reason in signals if sig == 'SELL'])
+            return {'signal': 'SELL', 'confidence': min(sell_score, 0.9), 'reasoning': reasoning, 'strategy_name': 'fallback'}
+        else:
+            return {'signal': 'HOLD', 'confidence': 0.4, 'reasoning': 'Gemischte Signale', 'strategy_name': 'fallback'}
+            
+    except Exception as e:
+        logger.error(f"❌ Fehler bei Fallback-Signal: {e}")
+        return {'signal': 'HOLD', 'confidence': 0.0, 'reasoning': 'Fehler bei Analyse', 'strategy_name': 'error'}
 
 # === KONFIGURATION ===
 # Alle Konfigurationen sind jetzt in config.py - nur Legacy-Kompatibilität hier
@@ -114,7 +272,15 @@ def schreibe_in_google_sheet(daten: Dict[str, Any]) -> None:
             "Erfolgreich" if not daten.get('error') else "Fehler",                      # X: Status
             daten.get('error', ''),                                                     # Y: Fehler_Details
             f"{daten.get('bestand', 0):.8f}" if daten.get('bestand') is not None else "0",  # Z: Bestand
-            f"{daten.get('wert_eur', 0):.2f}" if daten.get('wert_eur', 0) > 0 else "0"     # AA: Wert_EUR
+            f"{daten.get('wert_eur', 0):.2f}" if daten.get('wert_eur', 0) > 0 else "0",    # AA: Wert_EUR
+            # Trading-Strategie Empfehlungen - NEU für Performance-Tracking
+            daten.get('strategy_signal', 'HOLD'),                                       # AB: Strategy_Signal
+            f"{daten.get('strategy_confidence', 0.5):.3f}" if daten.get('strategy_confidence') is not None else "0.500",  # AC: Confidence_Score
+            daten.get('strategy_reasoning', ''),                                        # AD: Strategy_Reasoning
+            daten.get('strategy_name', 'fallback'),                                     # AE: Strategy_Name
+            # Performance Tracking - Werden später für Backtesting verwendet
+            f"{daten.get('price', 0):.4f}" if daten.get('price') is not None else "N/A",  # AF: Signal_Price (Preis zum Zeitpunkt der Empfehlung)
+            datetime.now().strftime("%Y-%m-%d %H:%M:%S")                                 # AG: Signal_Timestamp
         ]
         worksheet.append_row(row_data)
     except json.JSONDecodeError as e:
@@ -1111,6 +1277,14 @@ def run_full_analysis():
     
     nachrichten_teile = []
     for daten in ergebnis_daten:
+        # 🎯 WICHTIG: Trading-Signal generieren und zu Daten hinzufügen für Google Sheets
+        if not daten.get('error'):
+            trading_signal = generate_trading_signals(daten)
+            daten['strategy_signal'] = trading_signal['signal']
+            daten['strategy_confidence'] = trading_signal['confidence']
+            daten['strategy_reasoning'] = trading_signal['reasoning']
+            daten['strategy_name'] = trading_signal['strategy_name']
+        
         schreibe_in_google_sheet(daten)
         symbol = next((coin_data['symbol'] for coin_name, coin_data in COINS_TO_ANALYZE.items() if coin_name == daten['name']), 'N/A')
         
@@ -1132,6 +1306,26 @@ def run_full_analysis():
             # KORRIGIERT: Funktionsaufruf-Name
             tech_analyse_text = interpretiere_erweiterte_technische_analyse(daten)
             text_block += f"{tech_analyse_text}"
+            
+            # 🎯 Trading-Signal anzeigen (bereits generiert und gespeichert)
+            signal_emoji = {
+                'BUY': '💚',
+                'STRONG_BUY': '🚀',
+                'SELL': '🔴',
+                'STRONG_SELL': '💥',
+                'HOLD': '🟡'
+            }
+            
+            signal = daten.get('strategy_signal', 'HOLD')
+            confidence = daten.get('strategy_confidence', 0.5)
+            reasoning = daten.get('strategy_reasoning', '')
+            
+            confidence_text = f"{confidence*100:.0f}%"
+            signal_text = f"\n🎯 <b>{signal_emoji.get(signal, '⚪')} {signal}</b> ({confidence_text})"
+            if reasoning:
+                signal_text += f"\n💡 <i>{reasoning}</i>"
+            
+            text_block += signal_text
             
             # News-Analyse hinzufügen
             news_text = formatiere_news_analyse(daten.get('news_analyse'))
