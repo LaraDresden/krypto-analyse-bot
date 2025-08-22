@@ -780,7 +780,7 @@
             const confidence = (confidences[confidences.length - 1] || 0.5) * 100;
             
             let displaySignal = '⚪ HOLD';
-            if (signal === 'BUY') displaySignal = '� BUY';
+            if (signal === 'BUY') displaySignal = '🟢 BUY';
             if (signal === 'SELL') displaySignal = '🔴 SELL';
             
             return { signal: displaySignal, confidence: confidence.toFixed(0) };
@@ -1156,36 +1156,36 @@
             // Hauptchart mit allen Coins
             updateMainChart(marketData);
             
-            // Einzelne Coin-Charts
-            for (const coinName in marketData.coins) {
-                updateCoinChart(coinName, marketData.coins[coinName]);
+            // Einzelne Coin-Charts (nur ausgewählter Coin)
+            const selected = DOM.coinSelect.value || Object.keys(marketData.coins)[0];
+            if (selected && marketData.coins[selected]) {
+                updateCoinChart(selected, marketData.coins[selected]);
             }
             
-            // Trading-Signal Chart
-            updateTradingSignalChart(marketData);
-            
-            // ATR & Volume Charts
-            updateATRChart(marketData);
-            updateVolumeChart(marketData);
+            // RSI Chart für ausgewählten Coin
+            renderRSIChart(selected ? marketData.coins[selected] : null);
+
+            // Portfolio Verteilung
+            renderPortfolioChart(marketData);
+
+            // ATR & Volume Charts (gesamt)
+            renderATRChart(marketData);
+            renderVolumeChart(marketData);
             
             debugLog('✅ Alle Charts aktualisiert', 'success');
         }
         
         function updateMainChart(marketData) {
-            if (!priceChart) return;
-            
-            // Clear existing datasets
-            priceChart.data.datasets = [];
-            
+            const ctx = DOM.mainChart.getContext('2d');
+            if (chartInstances.main) chartInstances.main.destroy();
+
+            const datasets = [];
             const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
             let colorIndex = 0;
-            
             for (const coinName in marketData.coins) {
                 const coinData = marketData.coins[coinName];
                 const color = colors[colorIndex % colors.length];
-                colorIndex++;
-                
-                priceChart.data.datasets.push({
+                datasets.push({
                     label: `${coinName} Preis`,
                     data: coinData.prices,
                     borderColor: color,
@@ -1193,22 +1193,17 @@
                     fill: false,
                     tension: 0.1
                 });
+                colorIndex++;
             }
-            
-            // Update labels with dates from first coin
+
             const firstCoin = Object.values(marketData.coins)[0];
-            if (firstCoin) {
-                priceChart.data.labels = firstCoin.dates.map(date => 
-                    new Date(date).toLocaleDateString('de-DE', { 
-                        month: 'short', 
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                    })
-                );
-            }
-            
-            priceChart.update('none');
+            const labels = firstCoin ? firstCoin.dates.map(date => new Date(date).toLocaleDateString('de-DE', { month: 'short', day: 'numeric' })) : [];
+
+            chartInstances.main = new Chart(ctx, {
+                type: 'line',
+                data: { labels, datasets },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
         }
         
         function updateCoinChart(coinName, coinData) {
@@ -1263,10 +1258,10 @@
         }
         
         function updateTradingSignalChart(marketData) {
-            const chartElement = document.getElementById('signal-chart');
-            if (!chartElement) return;
-            
-            const ctx = chartElement.getContext('2d');
+            // Optional: Falls ein Signal-Chart existiert
+            const el = document.getElementById('signalChart');
+            if (!el) return;
+            const ctx = el.getContext('2d');
             const existingChart = Chart.getChart(ctx);
             
             if (existingChart) {
@@ -1306,11 +1301,10 @@
             });
         }
         
-        function updateATRChart(marketData) {
-            const chartElement = document.getElementById('atr-chart');
-            if (!chartElement) return;
-            
-            const ctx = chartElement.getContext('2d');
+        function renderATRChart(marketData) {
+            const el = DOM.atrChart; // id="atrChart"
+            if (!el) return;
+            const ctx = el.getContext('2d');
             const existingChart = Chart.getChart(ctx);
             
             if (existingChart) {
@@ -1336,7 +1330,7 @@
             
             const firstCoin = Object.values(marketData.coins)[0];
             
-            new Chart(ctx, {
+            chartInstances.atr = new Chart(ctx, {
                 type: 'line',
                 data: {
                     labels: firstCoin ? firstCoin.dates.map(date => 
@@ -1367,11 +1361,10 @@
             });
         }
         
-        function updateVolumeChart(marketData) {
-            const chartElement = document.getElementById('volume-chart');
-            if (!chartElement) return;
-            
-            const ctx = chartElement.getContext('2d');
+        function renderVolumeChart(marketData) {
+            const el = DOM.volumeChart; // id="volumeChart"
+            if (!el) return;
+            const ctx = el.getContext('2d');
             const existingChart = Chart.getChart(ctx);
             
             if (existingChart) {
@@ -1396,7 +1389,7 @@
             
             const firstCoin = Object.values(marketData.coins)[0];
             
-            new Chart(ctx, {
+            chartInstances.volume = new Chart(ctx, {
                 type: 'bar',
                 data: {
                     labels: firstCoin ? firstCoin.dates.map(date => 
@@ -1424,6 +1417,55 @@
                         legend: { display: true }
                     }
                 }
+            });
+        }
+
+        function renderRSIChart(coinData) {
+            if (!coinData) return;
+            const ctx = DOM.rsiChart.getContext('2d');
+            if (chartInstances.rsi) chartInstances.rsi.destroy();
+            chartInstances.rsi = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: coinData.dates.map(d => new Date(d).toLocaleDateString('de-DE')),
+                    datasets: [{
+                        label: 'RSI',
+                        data: coinData.rsi,
+                        borderColor: '#f59e0b',
+                        backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: { y: { min: 0, max: 100 } }
+                }
+            });
+        }
+
+        function renderPortfolioChart(marketData) {
+            const labels = [];
+            const values = [];
+            for (const coin in marketData.coins) {
+                const arr = marketData.coins[coin].portfolioValues;
+                if (arr && arr.length) {
+                    labels.push(coin);
+                    values.push(arr[arr.length - 1]);
+                }
+            }
+            const ctx = DOM.portfolioChart.getContext('2d');
+            if (chartInstances.portfolio) chartInstances.portfolio.destroy();
+            chartInstances.portfolio = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels,
+                    datasets: [{
+                        data: values,
+                        backgroundColor: ['#667eea', '#48bb78', '#f59e0b', '#f56565', '#ed64a6', '#9f7aea', '#4299e1', '#38b2ac']
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
             });
         }
 
@@ -1465,8 +1507,8 @@
             
             // Fallback zu Demo-Daten
             debugLog('🎮 Lade Demo-Daten...', 'warn');
-            const demoCSV = getDemoData();
-            const parsedData = parseCSVData(demoCSV);
+            // Nutze verbesserte Demo-Daten mit passendem Schema
+            const parsedData = getEnhancedDemoData();
             dashboardData = processMarketData(parsedData);
             
             DOM.connectionStatus.textContent = '🎮 Demo-Modus';
@@ -1604,6 +1646,39 @@
             if (DOM.smartAlerts.children.length === 0) {
                 DOM.smartAlerts.innerHTML = '<div class="insight-item"><span class="insight-icon">✅</span><span>Keine kritischen Alerts</span></div>';
             }
+
+            // News Analysis (KI)
+            DOM.newsAnalysis.innerHTML = '';
+            for (const coinName in dashboardData.coins) {
+                const coin = dashboardData.coins[coinName];
+                const sentiment = coin.newsSentiment[coin.newsSentiment.length - 1] || 'Neutral';
+                const ai = coin.aiRecommendation[coin.aiRecommendation.length - 1] || 'Hold';
+                const item = document.createElement('div');
+                item.className = 'insight-item';
+                const icon = sentiment.includes('Bull') ? '🟢' : sentiment.includes('Bear') ? '🔴' : '🟡';
+                item.innerHTML = `<span class="insight-icon">${icon}</span><span>${coinName}: ${sentiment} • AI: ${ai}</span>`;
+                DOM.newsAnalysis.appendChild(item);
+            }
+            if (DOM.newsAnalysis.children.length === 0) {
+                DOM.newsAnalysis.innerHTML = '<div class="insight-item"><span class="insight-icon">ℹ️</span><span>Keine News verfügbar</span></div>';
+            }
+
+            // Performance Metrics (einfacher Überblick)
+            DOM.performanceMetrics.innerHTML = '';
+            let winners = 0, losers = 0;
+            for (const coinName in dashboardData.coins) {
+                const prices = dashboardData.coins[coinName].prices;
+                if (prices.length >= 2) {
+                    const ch = ((prices[prices.length - 1] - prices[prices.length - 2]) / prices[prices.length - 2]) * 100;
+                    if (ch >= 0) winners++; else losers++;
+                }
+            }
+            const total = winners + losers;
+            const winRate = total ? Math.round((winners / total) * 100) : 0;
+            const perf = document.createElement('div');
+            perf.className = 'insight-item';
+            perf.innerHTML = `<span class="insight-icon">📈</span><span>Win-Rate (letzte Periode): ${winRate}% • Gewinner: ${winners} • Verlierer: ${losers}</span>`;
+            DOM.performanceMetrics.appendChild(perf);
         }
 
         // === LEGACY CHART UPDATE (für Coin-Dropdown) ===
