@@ -1310,60 +1310,49 @@
         // === DATENLADUNG FUNKTIONEN ===
 
         function loadDashboardData() {
-            // DIREKTE VERBINDUNG - Keine Fallbacks mehr!
-            const sheetUrl = GOOGLE_SHEET_CSV_URL;
+            console.log('🚀 Starte Dashboard-Datenladung...');
             
-            console.log('🔍 DIREKTE VERBINDUNG - Konfigurierte URL:', sheetUrl);
+            // PRIMÄR: VERSUCHE LIVE-DATEN VON GOOGLE SHEETS ZU LADEN
+            const sheetUrl = getGoogleSheetUrl();
+            console.log('🔍 Google Sheets URL gefunden:', sheetUrl);
             
-            // Prüfe ob URL konfiguriert ist
-            if (!sheetUrl || sheetUrl === "IHRE_GOOGLE_SHEET_CSV_EXPORT_URL_HIER_EINFUEGEN" || sheetUrl === "") {
-                console.warn('⚠️ Keine Google Sheets URL konfiguriert - verwende Demo-Daten');
-                updateConnectionStatus('warning', '🧪 Demo-Modus');
+            if (sheetUrl && sheetUrl !== "IHRE_GOOGLE_SHEET_CSV_EXPORT_URL_HIER_EINFUEGEN" && sheetUrl !== "" && sheetUrl !== "PLACEHOLDER_URL") {
+                console.log('� Versuche LIVE-DATEN von Google Sheets zu laden...');
+                updateConnectionStatus('connecting', '📡 Lade Live-Daten von Google Sheets...');
                 
-                // Zeige Info-Banner statt Fehlerseite
-                const infoBanner = document.createElement('div');
-                infoBanner.innerHTML = `
-                    <div style="background: #fff3cd; border: 2px solid #ffc107; border-radius: 8px; padding: 15px; margin: 20px; text-align: center; color: #856404;">
-                        <strong>🧪 Demo-Modus aktiv:</strong> Verwende Beispiel-Daten da keine Google Sheets URL konfiguriert ist. 
-                        <button onclick="this.parentElement.parentElement.remove();" style="background: none; border: none; color: #856404; text-decoration: underline; cursor: pointer; margin-left: 10px;">❌ Schließen</button>
-                    </div>
-                `;
-                document.body.insertBefore(infoBanner, document.body.firstChild);
+                // Versuche direkt Live-Daten zu laden
+                tryLoadGoogleSheets();
+            } else {
+                console.log('⚠️ Keine gültige Google Sheets URL konfiguriert');
+                console.log('🎮 Fallback: Verwende Demo-Daten');
+                updateConnectionStatus('demo', '🎮 Google Sheets nicht konfiguriert - Demo-Daten geladen');
                 
-                // Verwende Demo-Daten
+                // Fallback auf Demo-Daten wenn keine URL konfiguriert
+                loadDemoData();
+            }
+        }
+        
+        function tryLoadGoogleSheets() {
+            const sheetUrl = getGoogleSheetUrl();
+            if (!sheetUrl || sheetUrl === 'PLACEHOLDER_URL') {
+                console.log('⚠️ Google Sheets URL nicht konfiguriert, verwende Demo-Daten');
                 loadDemoData();
                 return;
             }
-            
-            // DIREKTE VERBINDUNG - KEIN FALLBACK AUF DEMO!
+
+            console.log('🔄 Versuche Google Sheets zu laden...');
             updateConnectionStatus('connecting', '🔄 Verbinde mit Google Sheets...');
-            console.log('📡 Starte direkten Fetch...');
             
-            // Alternative CORS-freie URLs für Google Sheets
-            let finalUrl = sheetUrl;
-            
-            // Wenn die URL ein /pub?output=csv enthält, versuche alternative Formate
-            if (sheetUrl.includes('/pub?output=csv')) {
-                // Extrahiere die Sheet-ID aus der URL
-                const match = sheetUrl.match(/\/spreadsheets\/d\/e\/(.*?)\/pub/);
-                if (match) {
-                    const sheetId = match[1];
-                    // Verwende direkten CSV-Export (oft CORS-freundlicher)
-                    finalUrl = `https://docs.google.com/spreadsheets/d/e/${sheetId}/pub?output=csv&gid=0`;
-                }
-            }
-            
-            console.log('📡 Finale URL:', finalUrl);
-            
-            fetch(finalUrl, {
-                mode: 'cors',
-                cache: 'no-cache',
+            // Direkter Versuch zuerst
+            fetch(sheetUrl, {
+                method: 'GET',
                 headers: {
-                    'Accept': 'text/csv,text/plain,*/*',
+                    'Accept': 'text/csv',
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
                 }
             })
                 .then(response => {
-                    console.log('📡 Response erhalten:', response.status, response.statusText);
+                    console.log('📡 Response Status:', response.status, response.statusText);
                     if (!response.ok) {
                         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                     }
@@ -1396,7 +1385,7 @@
                     initializeUI();
                     updateDashboard();
                     
-                    console.log('✅ ERFOLG: Echte Daten geladen!');
+                    console.log('✅ ERFOLG: Live-Daten geladen!');
                     
                 })
                 .catch(error => {
@@ -1440,30 +1429,15 @@
                             initializeUI();
                             updateDashboard();
                             
-                            console.log('✅ ERFOLG: Daten über Fallback geladen!');
+                            console.log('✅ ERFOLG: Live-Daten über Fallback geladen!');
                         })
                         .catch(fallbackError => {
-                            console.error('❌ Auch CORS-Proxy fehlgeschlagen:', fallbackError);
-                            updateConnectionStatus('error', `❌ Alle Versuche fehlgeschlagen`);
+                            console.error('❌ Google Sheets und CORS-Proxy fehlgeschlagen:', error, fallbackError);
+                            console.log('🎮 FALLBACK: Verwende Demo-Daten');
                             
-                            // Zeige detaillierte Fehlermeldung
-                            const errorMsg = `FEHLER beim Laden der Google Sheets Daten:
-
-🔴 Direkter Zugriff: ${error.message}
-🔴 CORS-Proxy: ${fallbackError.message}
-
-💡 Lösungsvorschläge:
-1. Überprüfen Sie, ob das Google Sheet öffentlich ist
-2. Testen Sie die URL direkt im Browser
-3. Öffnen Sie die Entwicklerkonsole (F12) für Details
-4. Verwenden Sie einen lokalen Server (python -m http.server)
-
-Für Demo-Zwecke werden jetzt Beispieldaten geladen.`;
-
-                            alert(errorMsg);
+                            updateConnectionStatus('demo', '🎮 Live-Daten nicht verfügbar - Demo-Daten geladen');
                             
-                            // Fallback auf Demo-Daten
-                            console.log('🎮 Fallback auf Demo-Daten...');
+                            // FALLBACK: Demo-Daten laden
                             loadDemoData();
                         });
                 });
