@@ -1828,9 +1828,16 @@
                         newsSentiment: [],
                         // Technische Indikatoren
                         atr: [],
+                        atrPercentage: [],
+                        volatilityLevel: [],
                         stopLoss: [],
                         stochK: [],
-                        williamsR: []
+                        stochD: [],
+                        williamsR: [],
+                        macdSignal: [],
+                        // Moving Averages und Trend
+                        maTrend: [],
+                        newsCategory: []
                     };
                 }
                 
@@ -1840,8 +1847,14 @@
                 coinData.dates.push(row.timestamp || new Date().toISOString());
                 coinData.prices.push(parseFloat(row.current_price || 0));
                 coinData.rsi.push(parseFloat(row.rsi || 50));
-                coinData.sentiment.push(parseFloat(row.news_sentiment || 0));
-                coinData.volume.push(parseFloat(row.volume_24h || 1));
+                
+                // News Sentiment als Zahl interpretieren
+                const sentimentValue = isNaN(parseFloat(row.news_sentiment)) ? 
+                    (row.news_sentiment === 'Bullish' ? 3 : row.news_sentiment === 'Bearish' ? -3 : 0) : 
+                    parseFloat(row.news_sentiment);
+                coinData.sentiment.push(sentimentValue);
+                
+                coinData.volume.push(parseFloat(row.volume_24h || 1000000000) / 1000000000); // Normalisiert
                 coinData.portfolioValues.push(parseFloat(row.portfolio_value || 0));
                 coinData.holdings.push(parseFloat(row.portfolio_weight || 0));
                 
@@ -1853,16 +1866,27 @@
                 
                 // Technische Indikatoren
                 coinData.atr.push(parseFloat(row.atr || 0));
+                coinData.atrPercentage.push(parseFloat(row.atr || 0) / parseFloat(row.current_price || 1) * 100);
+                coinData.volatilityLevel.push('🟡 Mittel'); // Default
                 coinData.stopLoss.push(parseFloat(row.stop_loss || 0));
                 coinData.stochK.push(parseFloat(row.stoch_k || 50));
+                coinData.stochD.push(parseFloat(row.stoch_d || 50));
                 coinData.williamsR.push(parseFloat(row.williams_r || -50));
+                coinData.macdSignal.push(row.macd_signal || 'HOLD');
+                
+                // Trend-Analyse basierend auf Empfehlung
+                const trendAnalysis = row.ai_recommendation === 'Strong Buy' ? '⭐ Golden Cross' :
+                                     row.ai_recommendation === 'Buy' ? '🟢 Bullisch' :
+                                     row.ai_recommendation === 'Sell' ? '🔴 Bärisch' : '🟡 Neutral';
+                coinData.maTrend.push(trendAnalysis);
+                coinData.newsCategory.push('Markt');
                 
                 // Portfolio Total berechnen
                 portfolio_total += parseFloat(row.portfolio_value || 0);
             });
             
             console.log('✅ Demo-Daten verarbeitet:', Object.keys(coins).length, 'Coins');
-            console.log('💰 Portfolio Total:', portfolio_total);
+            console.log('💰 Portfolio Total:', portfolio_total.toLocaleString('de-DE', {style: 'currency', currency: 'EUR'}));
             
             return {
                 coins: coins,
