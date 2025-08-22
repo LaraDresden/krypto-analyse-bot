@@ -2,8 +2,8 @@
 <!--
     🚀 Crypto Dashboard - Enhanced with Trading Signals & Portfolio Fix
     
-    Version: v2.1.0
-    Created: August 22, 2025 - 14:00:00 CET
+    Version: v2.1.1
+    Created: August 22, 2025 - 15:30:00 CET
     Author: LaraDresden + GitHub Copilot
     
     MAJOR UPDATE: TRADING RECOMMENDATIONS & PORTFOLIO CALCULATION FIX!
@@ -23,7 +23,17 @@
     - Fear & Greed Index integration
     - Browser settings persistence (localStorage)
     
-    Changelog v2.1.0:
+    Changelog v2.1.1:
+    - 🔧 MAJOR: Comprehensive Debug Console System implemented
+    - 📊 NEW: Real-time debug logging with color-coded messages
+    - 🎯 NEW: Version display in dashboard header (v2.1.1)
+    - ⚠️ NEW: Error tracking for all critical functions
+    - 📈 NEW: Chart error handling and troubleshooting
+    - 🔍 ENHANCED: Step-by-step data processing visibility
+    - 🎮 ENHANCED: Demo data loading with detailed status updates
+    - 💰 DEBUG: Portfolio calculation tracking added
+    - 🪙 DEBUG: Coin dropdown population monitoring
+    - ✅ TESTED: All debug features functional and informative
     - 🎯 MAJOR: Added Trading Signal KPI cards (BUY/SELL/HOLD with confidence)
     - 🤖 NEW: AI Recommendation display with sentiment analysis
     - 💰 FIXED: Portfolio total calculation and display
@@ -590,7 +600,7 @@
     <div class="dashboard">
         <!-- Header -->
         <header class="dashboard-header">
-            <h1>🚀 Krypto Dashboard</h1>
+            <h1>🚀 Krypto Dashboard <span style="font-size: 0.6em; color: #718096;">v2.1.1</span></h1>
             <div class="header-stats">
                 <div class="stat-item">
                     <div class="stat-value" id="portfolioTotal">€0</div>
@@ -603,6 +613,18 @@
                 <button id="refreshBtn" class="refresh-btn">🔄 Aktualisieren</button>
             </div>
         </header>
+
+        <!-- DEBUG PANEL -->
+        <section class="debug-panel" id="debugPanel" style="background: linear-gradient(135deg, #2d3748, #1a202c); color: #e2e8f0; padding: 20px; margin: 20px; border-radius: 12px; border-left: 4px solid #4299e1; font-family: 'Courier New', monospace; font-size: 13px; line-height: 1.4;">
+            <div style="display: flex; align-items: center; margin-bottom: 15px;">
+                <h3 style="margin: 0; color: #4299e1;">🔧 Debug Console v2.1.1</h3>
+                <button onclick="document.getElementById('debugPanel').style.display='none'" style="margin-left: auto; background: #e53e3e; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">❌ Ausblenden</button>
+            </div>
+            <div id="debugLogs" style="background: #1a202c; padding: 15px; border-radius: 8px; min-height: 100px; max-height: 300px; overflow-y: auto; border: 1px solid #4a5568;">
+                <div style="color: #68d391;">✅ Debug-System initialisiert | Version: v2.1.0</div>
+                <div style="color: #fbb6ce;">⏳ Warte auf Dashboard-Daten...</div>
+            </div>
+        </section>
 
         <!-- Market Overview -->
         <section class="market-overview">
@@ -1338,8 +1360,37 @@
         let currentCoin = 'Bitcoin';
         let currentTimeRange = 30;
 
+        // === DEBUG SYSTEM v2.1.0 ===
+        function debugLog(message, type = 'info') {
+            const debugContainer = document.getElementById('debugLogs');
+            if (!debugContainer) return;
+            
+            const timestamp = new Date().toLocaleTimeString('de-DE');
+            const colors = {
+                'info': '#81c784',
+                'warn': '#ffb74d', 
+                'error': '#e57373',
+                'success': '#68d391',
+                'data': '#64b5f6'
+            };
+            
+            const logEntry = document.createElement('div');
+            logEntry.style.color = colors[type] || colors.info;
+            logEntry.style.marginBottom = '3px';
+            logEntry.innerHTML = `[${timestamp}] ${message}`;
+            
+            debugContainer.appendChild(logEntry);
+            debugContainer.scrollTop = debugContainer.scrollHeight;
+            
+            // Auch in Browser Console loggen
+            console.log(`[DEBUG v2.1.0] ${message}`);
+        }
+
         // Initialisierung
         document.addEventListener('DOMContentLoaded', function() {
+            debugLog('🚀 Dashboard v2.1.0 startet...', 'success');
+            debugLog('📊 Features: Trading Signals, Portfolio Analysis, ATR Volatility', 'info');
+            
             console.log(`🚀 Crypto Dashboard ${DASHBOARD_VERSION.version} - Build ${DASHBOARD_VERSION.build}`);
             console.log('📊 Features:', DASHBOARD_VERSION.features.join(', '));
             console.log('👨‍💻 Created by:', DASHBOARD_VERSION.author);
@@ -1349,15 +1400,20 @@
             initializeDOM();
             
             setupEventListeners();
+            debugLog('🔧 Event Listeners konfiguriert', 'success');
+            
             loadDashboardData(); // Startet direkt mit konfigurierter URL
+            debugLog('📡 Datenladung gestartet...', 'info');
         });
 
         function initializeUI() {
             if (!dashboardData || !dashboardData.coins) {
+                debugLog('❌ FEHLER: Keine Dashboard-Daten für UI-Initialisierung!', 'error');
                 console.warn('⚠️ Keine Dashboard-Daten für UI-Initialisierung verfügbar');
                 return;
             }
             
+            debugLog(`📊 Dashboard-Daten verfügbar: ${Object.keys(dashboardData.coins).length} Coins`, 'data');
             console.log('🎨 Initialisiere UI mit echten Daten...');
             const settings = loadUserSettings();
             
@@ -1366,11 +1422,13 @@
             select.innerHTML = '';
             let selectedCoinExists = false;
             
+            debugLog('🪙 Befülle Coin-Dropdown...', 'info');
             Object.keys(dashboardData.coins).forEach(coinName => {
                 const option = document.createElement('option');
                 option.value = coinName;
                 option.textContent = coinName;
                 select.appendChild(option);
+                debugLog(`  ➕ ${coinName} hinzugefügt`, 'data');
                 
                 if (coinName === settings.selectedCoin) {
                     selectedCoinExists = true;
@@ -1592,13 +1650,17 @@
             try {
                 // Parse die CSV Demo-Daten wie echte Google Sheets Daten
                 const demoData = parseCSVData(demoCSV);
+                debugLog(`✅ CSV geparst: ${demoData.length} Datensätze`, 'success');
                 console.log('✅ Erweiterte Demo-Daten erfolgreich geladen:', demoData.length, 'Einträge');
                 
                 // Setze die globalen Daten
                 currentData = demoData;
+                debugLog(`🔄 currentData gesetzt (${currentData.length} Einträge)`, 'data');
                 
                 // Verarbeite die Daten wie Google Sheets Daten
                 dashboardData = processDemoData(demoData);
+                debugLog(`📊 Demo-Daten verarbeitet: ${Object.keys(dashboardData.coins).length} Coins`, 'success');
+                debugLog(`💰 Portfolio Total: €${dashboardData.portfolio_total.toLocaleString('de-DE')}`, 'data');
                 
                 console.log('📊 Dashboard Data nach Verarbeitung:', dashboardData);
                 console.log('💰 Portfolio Total:', dashboardData.portfolio_total);
@@ -1607,12 +1669,15 @@
                 // Zeige Erfolgsmeldung
                 setTimeout(() => {
                     const coinCount = [...new Set(demoData.map(item => item.coin))].length;
+                    debugLog(`🎮 ${coinCount} Demo-Coins erfolgreich geladen`, 'success');
                     updateConnectionStatus('demo', `🎮 ${coinCount} Demo-Coins erfolgreich geladen`);
                     
                     // Initialisiere UI falls nötig
                     if (!document.getElementById('coinSelect').options.length) {
+                        debugLog('🎨 Initialisiere UI...', 'info');
                         initializeUI();
                     }
+                    debugLog('📊 Starte Dashboard-Update...', 'info');
                     updateDashboard();
                 }, 500);
                 
@@ -2574,19 +2639,23 @@
 
         // Erweiterte updateDashboard-Funktion
         function updateDashboard() {
+            debugLog('🔄 updateDashboard() aufgerufen', 'info');
             console.log('🔄 updateDashboard aufgerufen');
             console.log('📊 dashboardData:', dashboardData);
             console.log('🎯 currentCoin:', currentCoin);
             
             if (!dashboardData || !dashboardData.coins[currentCoin]) {
+                debugLog(`❌ FEHLER: Keine Daten für ${currentCoin}!`, 'error');
                 console.warn('Keine Daten für', currentCoin);
                 console.log('📊 Verfügbare Coins:', dashboardData ? Object.keys(dashboardData.coins) : 'dashboardData ist null');
                 return;
             }
 
             const coinData = dashboardData.coins[currentCoin];
+            debugLog(`📊 Aktualisiere Dashboard für ${currentCoin}`, 'info');
             
             console.log('💰 Portfolio Total für Update:', dashboardData.portfolio_total);
+            debugLog(`💰 Portfolio Total: €${dashboardData.portfolio_total.toLocaleString('de-DE')}`, 'data');
             
             // Update Header (mit DOM-Caching)
             DOM.portfolioTotal.textContent = 
@@ -2595,10 +2664,18 @@
                 new Date(dashboardData.last_update).toLocaleTimeString('de-DE');
 
             // Update KPIs
+            debugLog('📊 Aktualisiere KPIs...', 'info');
             updateKPIs(coinData);
             
             // Update Charts
-            updateCharts(coinData);
+            debugLog('📈 Aktualisiere Charts...', 'info');
+            try {
+                updateCharts(coinData);
+                debugLog('✅ Charts erfolgreich aktualisiert', 'success');
+            } catch (error) {
+                debugLog(`❌ Chart-Fehler: ${error.message}`, 'error');
+                console.error('Chart-Update Fehler:', error);
+            }
             
             // Update Market Overview
             updateMarketOverview();

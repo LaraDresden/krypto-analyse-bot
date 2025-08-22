@@ -2,7 +2,7 @@
 
 Eine **professionelle, modulare Krypto-Analyse- und Trading-Simulations-Plattform** mit KI-unterstützter News-Analyse, erweiterten technischen Indikatoren und automatisiertem Portfolio-Management.
 
-![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)
+![Version](https://img.shields.io/badge/version-2.1.0-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.8+-green.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
