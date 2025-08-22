@@ -247,6 +247,34 @@
             color: #718096;
         }
 
+        /* Trading Signal Styles */
+        .trading-signal-buy {
+            color: #48bb78 !important;
+            background: linear-gradient(135deg, #48bb78, #38a169);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-weight: bold;
+        }
+
+        .trading-signal-sell {
+            color: #f56565 !important;
+            background: linear-gradient(135deg, #f56565, #e53e3e);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-weight: bold;
+        }
+
+        .trading-signal-hold {
+            color: #ed8936 !important;
+            background: linear-gradient(135deg, #ed8936, #dd6b20);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-weight: bold;
+        }
+
         /* Charts */
         .charts-section {
             display: grid;
@@ -672,6 +700,16 @@
                 <div class="kpi-value" id="fearGreedValue">😊 65</div>
                 <div class="kpi-change positive" id="fearGreedLevel">Greed</div>
             </div>
+            <div class="kpi-card">
+                <div class="kpi-label">🎯 Trading Signal</div>
+                <div class="kpi-value" id="tradingSignal">💚 BUY</div>
+                <div class="kpi-change positive" id="signalConfidence">85% Konfidenz</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">🤖 AI Empfehlung</div>
+                <div class="kpi-value" id="aiRecommendation">Strong Buy</div>
+                <div class="kpi-change positive" id="aiReason">Bullish</div>
+            </div>
         </section>
 
         <!-- Charts -->
@@ -1004,6 +1042,100 @@
             
             log('✅ CSV-Parsing erfolgreich:', data.length, 'Zeilen');
             return data;
+        }
+
+        // Verarbeitung für englische Demo-Daten (CSV mit englischen Spalten)
+        function processMarketData(data) {
+            console.log('🔄 Verarbeite Markt-Daten (englisches Format):', data.length, 'Einträge');
+            
+            if (data.length === 0) {
+                throw new Error('Keine Daten zum Verarbeiten vorhanden');
+            }
+            
+            console.log('📊 Sample Demo-Eintrag:', data[0]);
+            
+            const coins = {};
+            let totalPortfolioValue = 0;
+            
+            // Gruppiere Daten nach Coin
+            data.forEach(row => {
+                const coinName = row.coin;
+                if (!coinName) return;
+                
+                if (!coins[coinName]) {
+                    coins[coinName] = {
+                        prices: [],
+                        dates: [],
+                        rsi: [],
+                        sentiment: [],
+                        volume: [],
+                        portfolioValues: [],
+                        holdings: [],
+                        atr: [],
+                        atrPercentage: [],
+                        volatilityLevel: [],
+                        stopLoss: [],
+                        stochK: [],
+                        williamsR: [],
+                        macdSignal: [],
+                        maTrend: [],
+                        newsCategory: [],
+                        // Trading Empfehlungen Felder
+                        strategySignal: [],
+                        confidenceScore: [],
+                        aiRecommendation: [],
+                        newsSentiment: [],
+                        rawData: []
+                    };
+                }
+                
+                const coinData = coins[coinName];
+                
+                // Basis-Daten
+                coinData.dates.push(row.timestamp || new Date().toISOString());
+                coinData.prices.push(parseFloat(row.current_price || 0));
+                coinData.rsi.push(parseFloat(row.rsi || 50));
+                coinData.sentiment.push(parseFloat(row.news_sentiment || 0));
+                coinData.volume.push(parseFloat(row.volume_24h || 1));
+                coinData.portfolioValues.push(parseFloat(row.portfolio_value || 0));
+                coinData.holdings.push(parseFloat(row.portfolio_weight || 0));
+                
+                // Technische Indikatoren
+                coinData.atr.push(parseFloat(row.atr || 0));
+                coinData.atrPercentage.push((parseFloat(row.atr || 0) / parseFloat(row.current_price || 1)) * 100);
+                coinData.volatilityLevel.push('🟡 Mittel'); // Default
+                coinData.stopLoss.push(parseFloat(row.stop_loss || 0));
+                coinData.stochK.push(parseFloat(row.stoch_k || 50));
+                coinData.williamsR.push(parseFloat(row.williams_r || -50));
+                coinData.macdSignal.push(row.macd_signal || 'HOLD');
+                coinData.maTrend.push('🟡 Neutral'); // Default
+                coinData.newsCategory.push('Markt'); // Default
+                
+                // TRADING EMPFEHLUNGEN - Das ist das Wichtige!
+                coinData.strategySignal.push(row.strategy_signal || 'HOLD');
+                coinData.confidenceScore.push(parseFloat(row.confidence_score || 0.5));
+                coinData.aiRecommendation.push(row.ai_recommendation || 'Hold');
+                coinData.newsSentiment.push(row.news_sentiment || 'Neutral');
+                
+                coinData.rawData.push(row);
+                
+                // Portfolio-Wert akkumulieren
+                totalPortfolioValue += parseFloat(row.portfolio_value || 0);
+            });
+            
+            console.log('📊 Verarbeitete Coins:', Object.keys(coins));
+            console.log('💰 Gesamt-Portfolio-Wert:', totalPortfolioValue);
+            
+            // Setze globale Dashboard-Daten
+            dashboardData = {
+                coins: coins,
+                portfolio_total: totalPortfolioValue,
+                last_update: new Date().toISOString()
+            };
+            
+            console.log('✅ Dashboard-Daten erstellt:', Object.keys(dashboardData.coins).length, 'Coins');
+            
+            return dashboardData;
         }
 
         function processSheetData(data) {
@@ -1664,6 +1796,69 @@
             document.getElementById('fearGreedValue').textContent = '😊 65';
             document.getElementById('fearGreedLevel').textContent = 'Greed';
             document.getElementById('fearGreedLevel').className = 'kpi-change positive';
+            
+            // TRADING EMPFEHLUNGEN UPDATE (NEU)
+            updateTradingSignals(coinData);
+        }
+
+        function updateTradingSignals(coinData) {
+            // Trading Signal aus den Daten extrahieren (strategy_signal)
+            const tradingSignal = coinData.strategySignal && coinData.strategySignal.length > 0 ? 
+                coinData.strategySignal[coinData.strategySignal.length - 1] : 'HOLD';
+            
+            const confidence = coinData.confidenceScore && coinData.confidenceScore.length > 0 ?
+                coinData.confidenceScore[coinData.confidenceScore.length - 1] : 0.5;
+            
+            // AI Empfehlung aus den Daten extrahieren
+            const aiRecommendation = coinData.aiRecommendation && coinData.aiRecommendation.length > 0 ?
+                coinData.aiRecommendation[coinData.aiRecommendation.length - 1] : 'Hold';
+            
+            const newsSentiment = coinData.newsSentiment && coinData.newsSentiment.length > 0 ?
+                coinData.newsSentiment[coinData.newsSentiment.length - 1] : 'Neutral';
+            
+            // Trading Signal anzeigen
+            const tradingSignalEl = document.getElementById('tradingSignal');
+            const confidenceEl = document.getElementById('signalConfidence');
+            
+            switch(tradingSignal.toUpperCase()) {
+                case 'BUY':
+                    tradingSignalEl.textContent = '💚 BUY';
+                    tradingSignalEl.className = 'kpi-value trading-signal-buy';
+                    confidenceEl.className = 'kpi-change positive';
+                    break;
+                case 'SELL':
+                    tradingSignalEl.textContent = '❤️ SELL';
+                    tradingSignalEl.className = 'kpi-value trading-signal-sell';
+                    confidenceEl.className = 'kpi-change negative';
+                    break;
+                case 'HOLD':
+                default:
+                    tradingSignalEl.textContent = '🟡 HOLD';
+                    tradingSignalEl.className = 'kpi-value trading-signal-hold';
+                    confidenceEl.className = 'kpi-change neutral';
+                    break;
+            }
+            
+            confidenceEl.textContent = Math.round(confidence * 100) + '% Konfidenz';
+            
+            // AI Empfehlung anzeigen
+            const aiRecommendationEl = document.getElementById('aiRecommendation');
+            const aiReasonEl = document.getElementById('aiReason');
+            
+            aiRecommendationEl.textContent = aiRecommendation;
+            aiReasonEl.textContent = newsSentiment;
+            
+            // Farbe basierend auf Empfehlung
+            if (aiRecommendation.toLowerCase().includes('buy')) {
+                aiRecommendationEl.className = 'kpi-value trading-signal-buy';
+                aiReasonEl.className = 'kpi-change positive';
+            } else if (aiRecommendation.toLowerCase().includes('sell')) {
+                aiRecommendationEl.className = 'kpi-value trading-signal-sell';
+                aiReasonEl.className = 'kpi-change negative';
+            } else {
+                aiRecommendationEl.className = 'kpi-value trading-signal-hold';
+                aiReasonEl.className = 'kpi-change neutral';
+            }
         }
 
         function updateCharts(coinData) {
