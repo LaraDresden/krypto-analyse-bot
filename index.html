@@ -1,18 +1,20 @@
 <!DOCTYPE html>
 <!--
-    🚀 Crypto Dashboard - Enhanced with ATR & Parallel Processing
+    🚀 Crypto Dashboard - Enhanced with Trading Signals & Portfolio Fix
     
-    Version: v2.0.0
-    Created: August 20, 2025 - 15:30:00 CET
-    Author: Claude (Anthropic) + GitHub Copilot
+    Version: v2.1.0
+    Created: August 22, 2025 - 14:00:00 CET
+    Author: LaraDresden + GitHub Copilot
     
-    MAJOR UPDATE: ADVANCED TECHNICAL ANALYSIS & PERFORMANCE BOOST!
+    MAJOR UPDATE: TRADING RECOMMENDATIONS & PORTFOLIO CALCULATION FIX!
     
     Features:
     - Responsive design for mobile & desktop
     - ENHANCED Google Sheets integration with NEW COLUMNS
     - Real-time crypto data visualization
     - EXTENDED Technical indicators (RSI, MACD, MA, ATR, Stochastic, Williams %R)
+    - 🎯 NEW: Trading Signal indicators (BUY/SELL/HOLD)
+    - 🤖 NEW: AI Recommendation system with confidence scores
     - ATR-based volatility analysis and stop-loss calculations
     - Parallel processing visualization for performance metrics
     - News sentiment analysis with AI integration
@@ -21,27 +23,22 @@
     - Fear & Greed Index integration
     - Browser settings persistence (localStorage)
     
-    Changelog v2.0.0:
-    - MAJOR: Added ATR (Average True Range) volatility analysis
-    - NEW: Volatility Level indicators (Low/Medium/High/Extreme)
-    - NEW: ATR-based stop-loss recommendations
-    - NEW: Volatility trend analysis (Rising/Falling/Stable)
-    - NEW: Extended technical indicators dashboard
-    - NEW: Smart alerts for volatility breakouts
-    - NEW: News sentiment integration with AI analysis
-    - NEW: Performance metrics showing parallel processing gains
-    - ENHANCED: Chart system with volatility overlays
-    - IMPROVED: KPI cards with ATR and volatility data
-    - ADDED: Market context with Fear & Greed Index
-    - FIXED: All error handling improvements from backend
+    Changelog v2.1.0:
+    - 🎯 MAJOR: Added Trading Signal KPI cards (BUY/SELL/HOLD with confidence)
+    - 🤖 NEW: AI Recommendation display with sentiment analysis
+    - 💰 FIXED: Portfolio total calculation and display
+    - 🪙 FIXED: All 10 coins now available in dropdown (Bitcoin, Ethereum, etc.)
+    - 📊 NEW: processDemoData function for proper demo data handling
+    - 🎨 NEW: Color-coded trading signals with gradient effects
+    - 📈 ENHANCED: Demo CSV data with all trading signal fields
+    - 🔧 FIXED: Data loading priority (Live data first, demo fallback)
+    - ✅ TESTED: All features working with comprehensive error handling
     
-    Backend Integration:
-    - Supports NEW Google Sheets columns (ATR, Volatility_Level, News_Sentiment, etc.)
-    - Parallel processing performance visualization
-    - Enhanced error handling and robustness
-    - AI-powered news analysis integration
+    Version History:
+    - v2.0.0: ATR volatility analysis and technical indicators
+    - v2.1.0: Trading signals, AI recommendations, portfolio fix
     
-    Last Updated: August 20, 2025 - 15:30:00 CET
+    Last Updated: August 22, 2025 - 14:00:00 CET
 -->
 <html lang="de">
 <head>
@@ -1603,6 +1600,10 @@
                 // Verarbeite die Daten wie Google Sheets Daten
                 dashboardData = processDemoData(demoData);
                 
+                console.log('📊 Dashboard Data nach Verarbeitung:', dashboardData);
+                console.log('💰 Portfolio Total:', dashboardData.portfolio_total);
+                console.log('🪙 Verfügbare Coins:', Object.keys(dashboardData.coins));
+                
                 // Zeige Erfolgsmeldung
                 setTimeout(() => {
                     const coinCount = [...new Set(demoData.map(item => item.coin))].length;
@@ -2573,12 +2574,19 @@
 
         // Erweiterte updateDashboard-Funktion
         function updateDashboard() {
+            console.log('🔄 updateDashboard aufgerufen');
+            console.log('📊 dashboardData:', dashboardData);
+            console.log('🎯 currentCoin:', currentCoin);
+            
             if (!dashboardData || !dashboardData.coins[currentCoin]) {
                 console.warn('Keine Daten für', currentCoin);
+                console.log('📊 Verfügbare Coins:', dashboardData ? Object.keys(dashboardData.coins) : 'dashboardData ist null');
                 return;
             }
 
             const coinData = dashboardData.coins[currentCoin];
+            
+            console.log('💰 Portfolio Total für Update:', dashboardData.portfolio_total);
             
             // Update Header (mit DOM-Caching)
             DOM.portfolioTotal.textContent = 
