@@ -1600,8 +1600,8 @@
                 // Setze die globalen Daten
                 currentData = demoData;
                 
-                // Verarbeite die Daten wie normale API-Daten
-                processMarketData(demoData);
+                // Verarbeite die Daten wie Google Sheets Daten
+                dashboardData = processDemoData(demoData);
                 
                 // Zeige Erfolgsmeldung
                 setTimeout(() => {
@@ -1620,7 +1620,7 @@
                 // Fallback zu alter Demo-Daten-Methode
                 console.log('🔄 Fallback zu Standard-Demo-Daten...');
                 const fallbackData = generateDemoData();
-                processMarketData(fallbackData);
+                dashboardData = fallbackData;
                 updateConnectionStatus('demo', '🎮 Standard Demo-Daten geladen');
             }
         }
@@ -1799,6 +1799,76 @@
             
             // TRADING EMPFEHLUNGEN UPDATE (NEU)
             updateTradingSignals(coinData);
+        }
+
+        function processDemoData(data) {
+            console.log('🎮 Verarbeite Demo-Daten:', data.length, 'Einträge');
+            
+            const coins = {};
+            let portfolio_total = 0;
+            
+            // Gruppiere Daten nach Coin
+            data.forEach(row => {
+                const coinName = row.coin;
+                if (!coinName) return;
+                
+                if (!coins[coinName]) {
+                    coins[coinName] = {
+                        prices: [],
+                        dates: [],
+                        rsi: [],
+                        sentiment: [],
+                        volume: [],
+                        portfolioValues: [],
+                        holdings: [],
+                        // Trading Signal Felder
+                        strategySignal: [],
+                        confidenceScore: [],
+                        aiRecommendation: [],
+                        newsSentiment: [],
+                        // Technische Indikatoren
+                        atr: [],
+                        stopLoss: [],
+                        stochK: [],
+                        williamsR: []
+                    };
+                }
+                
+                const coinData = coins[coinName];
+                
+                // Basis-Daten
+                coinData.dates.push(row.timestamp || new Date().toISOString());
+                coinData.prices.push(parseFloat(row.current_price || 0));
+                coinData.rsi.push(parseFloat(row.rsi || 50));
+                coinData.sentiment.push(parseFloat(row.news_sentiment || 0));
+                coinData.volume.push(parseFloat(row.volume_24h || 1));
+                coinData.portfolioValues.push(parseFloat(row.portfolio_value || 0));
+                coinData.holdings.push(parseFloat(row.portfolio_weight || 0));
+                
+                // Trading Signal Daten
+                coinData.strategySignal.push(row.strategy_signal || 'HOLD');
+                coinData.confidenceScore.push(parseFloat(row.confidence_score || 0.5));
+                coinData.aiRecommendation.push(row.ai_recommendation || 'Hold');
+                coinData.newsSentiment.push(row.news_sentiment || 'Neutral');
+                
+                // Technische Indikatoren
+                coinData.atr.push(parseFloat(row.atr || 0));
+                coinData.stopLoss.push(parseFloat(row.stop_loss || 0));
+                coinData.stochK.push(parseFloat(row.stoch_k || 50));
+                coinData.williamsR.push(parseFloat(row.williams_r || -50));
+                
+                // Portfolio Total berechnen
+                portfolio_total += parseFloat(row.portfolio_value || 0);
+            });
+            
+            console.log('✅ Demo-Daten verarbeitet:', Object.keys(coins).length, 'Coins');
+            console.log('💰 Portfolio Total:', portfolio_total);
+            
+            return {
+                coins: coins,
+                portfolio_total: portfolio_total,
+                last_update: new Date().toISOString()
+            };
         }
 
         function updateTradingSignals(coinData) {
