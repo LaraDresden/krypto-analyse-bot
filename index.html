@@ -1496,11 +1496,18 @@
 
         // === DATENLADUNG FUNKTIONEN ===
 
+        function getGoogleSheetUrl() {
+            // Verwende die konfigurierte URL oder return leeren String für Demo-Modus
+            return GOOGLE_SHEET_CSV_URL || "";
+        }
+
         function loadDashboardData() {
+            debugLog('🚀 Starte Dashboard-Datenladung...', 'info');
             console.log('🚀 Starte Dashboard-Datenladung...');
             
             // PRIMÄR: VERSUCHE LIVE-DATEN VON GOOGLE SHEETS ZU LADEN
             const sheetUrl = getGoogleSheetUrl();
+            debugLog(`🔍 Google Sheets URL: ${sheetUrl}`, 'data');
             console.log('🔍 Google Sheets URL gefunden:', sheetUrl);
             
             if (sheetUrl && sheetUrl !== "IHRE_GOOGLE_SHEET_CSV_EXPORT_URL_HIER_EINFUEGEN" && sheetUrl !== "" && sheetUrl !== "PLACEHOLDER_URL") {
@@ -1631,6 +1638,7 @@
         }
 
         function loadDemoData() {
+            debugLog('🎮 Lade erweiterte Demo-Daten für lokale Tests...', 'info');
             console.log('🎮 Lade erweiterte Demo-Daten für lokale Tests...');
             updateConnectionStatus('connected', '🎮 Erweiterte Demo-Daten geladen');
             
@@ -1682,19 +1690,30 @@
                 }, 500);
                 
             } catch (error) {
+                debugLog(`❌ CSV-Parsing Fehler: ${error.message}`, 'error');
                 console.error('❌ Fehler beim Laden der erweiterten Demo-Daten:', error);
                 // Fallback zu alter Demo-Daten-Methode
+                debugLog('🔄 Fallback zu Standard-Demo-Daten...', 'warn');
                 console.log('🔄 Fallback zu Standard-Demo-Daten...');
                 const fallbackData = generateDemoData();
                 dashboardData = fallbackData;
+                debugLog(`📊 Fallback-Daten: ${Object.keys(dashboardData.coins).length} Coins`, 'success');
                 updateConnectionStatus('demo', '🎮 Standard Demo-Daten geladen');
+                
+                // Force UI initialization
+                setTimeout(() => {
+                    debugLog('🎨 Force-Initialisiere UI...', 'info');
+                    initializeUI();
+                    updateDashboard();
+                }, 100);
             }
         }
 
         // === UI FUNKTIONEN ===
 
         function generateDemoData() {
-            const coins = ['Bitcoin', 'Ethereum', 'Solana', 'Cardano', 'XRP'];
+            debugLog('🔧 Generiere Standard-Demo-Daten...', 'info');
+            const coins = ['Bitcoin', 'Ethereum', 'Solana', 'Cardano', 'XRP', 'Binance Coin', 'Chainlink', 'Polkadot', 'Dogecoin', 'Polygon'];
             const data = { coins: {}, last_update: new Date().toISOString(), portfolio_total: 0 };
             
             coins.forEach(coinName => {
@@ -1703,7 +1722,12 @@
                     'Ethereum': 3500,
                     'Solana': 180,
                     'Cardano': 0.85,
-                    'XRP': 2.1
+                    'XRP': 2.1,
+                    'Binance Coin': 295,
+                    'Chainlink': 15,
+                    'Polkadot': 7.35,
+                    'Dogecoin': 0.085,
+                    'Polygon': 0.76
                 }[coinName];
 
                 const coinData = {
@@ -1711,7 +1735,25 @@
                     prices: [],
                     rsi: [],
                     sentiment: [],
-                    volume: []
+                    volume: [],
+                    portfolioValues: [],
+                    holdings: [],
+                    // Trading Signal Felder
+                    strategySignal: [],
+                    confidenceScore: [],
+                    aiRecommendation: [],
+                    newsSentiment: [],
+                    // Technische Indikatoren
+                    atr: [],
+                    atrPercentage: [],
+                    volatilityLevel: [],
+                    stopLoss: [],
+                    stochK: [],
+                    stochD: [],
+                    williamsR: [],
+                    macdSignal: [],
+                    maTrend: [],
+                    newsCategory: []
                 };
 
                 let currentPrice = basePrice;
@@ -1737,6 +1779,32 @@
                     
                     // Volume
                     coinData.volume.push(0.5 + Math.random() * 2);
+                    
+                    // Portfolio und Holdings
+                    const portfolioValue = currentPrice * Math.random() * 0.1;
+                    coinData.portfolioValues.push(portfolioValue);
+                    coinData.holdings.push(Math.random() * 10);
+                    
+                    // Trading Signals
+                    const signals = ['BUY', 'SELL', 'HOLD'];
+                    coinData.strategySignal.push(signals[Math.floor(Math.random() * signals.length)]);
+                    coinData.confidenceScore.push(0.5 + Math.random() * 0.5);
+                    
+                    const recommendations = ['Strong Buy', 'Buy', 'Hold', 'Sell', 'Strong Sell'];
+                    coinData.aiRecommendation.push(recommendations[Math.floor(Math.random() * recommendations.length)]);
+                    coinData.newsSentiment.push(['Bullish', 'Neutral', 'Bearish'][Math.floor(Math.random() * 3)]);
+                    
+                    // Technische Indikatoren
+                    coinData.atr.push(currentPrice * (0.01 + Math.random() * 0.04));
+                    coinData.atrPercentage.push(1 + Math.random() * 4);
+                    coinData.volatilityLevel.push(['🟢 Niedrig', '🟡 Mittel', '🔴 Hoch'][Math.floor(Math.random() * 3)]);
+                    coinData.stopLoss.push(currentPrice * 0.95);
+                    coinData.stochK.push(Math.random() * 100);
+                    coinData.stochD.push(Math.random() * 100);
+                    coinData.williamsR.push(-Math.random() * 100);
+                    coinData.macdSignal.push(['BUY', 'SELL', 'HOLD'][Math.floor(Math.random() * 3)]);
+                    coinData.maTrend.push(['🟢 Bullisch', '🟡 Neutral', '🔴 Bärisch'][Math.floor(Math.random() * 3)]);
+                    coinData.newsCategory.push('Markt');
                 }
 
                 data.coins[coinName] = coinData;
@@ -1745,6 +1813,8 @@
             data.portfolio_total = Object.values(data.coins).reduce((sum, coin) => 
                 sum + coin.prices[coin.prices.length - 1] * Math.random() * 0.01, 0);
 
+            debugLog(`✅ Standard-Demo-Daten generiert: ${Object.keys(data.coins).length} Coins`, 'success');
+            debugLog(`💰 Portfolio Total: €${data.portfolio_total.toLocaleString('de-DE')}`, 'data');
             return data;
         }
 
