@@ -1,13 +1,35 @@
 # 🚀 Krypto Analyse Bot - Versionierung
 
-## Aktuelle Version: v2.1.0
+## Aktuelle Version: v2.1.2
 
-**Release Datum:** 22. August 2025 - 14:00:00 CET  
-**Status:** ✅ Stabil - Vollständig funktionsfähig
+**Release Datum:** 22. Januar 2025 - 15:30:00 CET  
+**Status:** ✅ FIXED - Alle kritischen Issues behoben
 
 ---
 
 ## 📋 Version History
+
+### v2.1.2 - COMPLETE FIX Release (22.01.2025)
+**🎯 CRITICAL FIX: Alle Dashboard-Probleme behoben**
+
+#### ✅ Vollständig implementierte Features:
+- **🔧 ALLE FEHLENDEN FUNKTIONEN IMPLEMENTIERT**: getRSIStatus, getVolatilityLevel, getTradingSignal, updateCoinDropdown
+- **💰 PORTFOLIO-BERECHNUNG FIXED**: Korrekter Portfolio-Wert statt €0
+- **🪙 COIN-DROPDOWN FIXED**: Alle 10 Coins verfügbar statt nur 3
+- **📊 CHART-RENDERING FIXED**: Alle Charts funktionieren mit Chart.js
+- **🎯 TRADING SIGNALS KOMPLETT**: Funktionale Trading-Empfehlungen mit Konfidenz
+- **🤖 AI EMPFEHLUNGEN AKTIV**: KI-basierte Kauf-/Verkaufsempfehlungen
+- **📡 INTELLIGENTE DATENLADUNG**: Google Sheets → Demo Fallback
+- **🔄 AUTO-REFRESH**: Alle 5 Minuten automatische Aktualisierung
+- **🛠️ CHART MEMORY LEAK FIX**: Proper Chart Instance Management
+
+### v2.1.1 - Debug & Bugfix Release (22.01.2025)
+**� DEBUG RELEASE: Debugging-System implementiert (SUPERSEDED)**
+
+#### ✅ Debugging Features:
+- **🔧 Debug Console**: Echtzeit-Logging mit Farbcodierung
+- **📊 System Monitoring**: Comprehensive Error Tracking
+- ⚠️ **Regression Issues**: Portfolio €0, 3 Coins only, Chart failures → FIXED in v2.1.2
 
 ### v2.1.0 - Trading Signals & Portfolio Fix (22.08.2025)
 **🎯 MAJOR RELEASE: Trading-Empfehlungen integriert**
