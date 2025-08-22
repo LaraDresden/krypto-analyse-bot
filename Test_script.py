@@ -15,6 +15,10 @@ from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError
 import asyncio
 import numpy as np
 
+# === .ENV DATEI LADEN ===
+from dotenv import load_dotenv
+load_dotenv()  # Lädt alle Umgebungsvariablen aus der .env-Datei
+
 # === NEUE MODULARE IMPORTS ===
 from config import (
     API_CONFIG, COINS_TO_ANALYZE, COIN_SEARCH_TERMS, QUALITY_SOURCES, 
@@ -126,15 +130,24 @@ def schreibe_in_google_sheet(daten: Dict[str, Any]) -> None:
 
 def sende_telegram_nachricht(nachricht: str) -> None:
     """Sendet eine formatierte Nachricht an Ihren Telegram-Bot."""
+    # IMMER Nachrichteninhalt in der Konsole anzeigen
+    print("\n" + "="*60)
+    print("📱 TELEGRAM NACHRICHTENINHALT (Vorschau):")
+    print("="*60)
+    print(nachricht)
+    print("="*60 + "\n")
+    
     bot_token = os.getenv('TELEGRAM_BOT_TOKEN')
     chat_id = os.getenv('TELEGRAM_CHAT_ID')
-    if not bot_token or not chat_id: return
+    if not bot_token or not chat_id: 
+        logger.warning("⚠️ Telegram-Credentials nicht gefunden. Nachricht wird nur als Vorschau angezeigt.")
+        return
     url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
     params = {'chat_id': chat_id, 'text': nachricht, 'parse_mode': 'HTML'}
     try:
         response = requests.post(url, params=params, timeout=API_CONFIG['telegram_timeout'])
         response.raise_for_status()
-        logger.info(f"Telegram-Benachrichtigung erfolgreich gesendet!")
+        logger.info(f"📱 Telegram-Benachrichtigung erfolgreich gesendet!")
     except requests.exceptions.Timeout as e:
         logger.error(f"Timeout beim Senden der Telegram-Nachricht: {e}")
     except requests.exceptions.ConnectionError as e:
@@ -363,7 +376,10 @@ def analyse_einzelnen_coin(coin_data: tuple, bitvavo, alle_news: Dict, gemini_mo
     
     try:
         # 1. ERWEITERTE Technische Analyse (parallelisierbar)
-        analyse_ergebnis = get_bitvavo_data(bitvavo, coin_name, symbol)
+        if not bitvavo:
+            analyse_ergebnis = {'name': coin_name, 'error': "Keine API-Verbindung"}
+        else:
+            analyse_ergebnis = get_bitvavo_data(bitvavo, coin_name, symbol)
         
         if analyse_ergebnis.get('error'):
             print(f"❌ [Thread] Fehler bei {coin_name}: {analyse_ergebnis['error']}")
@@ -421,9 +437,9 @@ def setup_gemini_ai():
         import google.generativeai as genai_local  # type: ignore
         genai_local.configure(api_key=api_key)  # type: ignore
         
-        # Verfügbare Modelle: gemini-pro, gemini-pro-vision  
-        model = genai_local.GenerativeModel('gemini-pro')  # type: ignore
-        print("✅ Gemini AI erfolgreich initialisiert mit gemini-pro")
+        # Verfügbare Modelle: gemini-1.5-flash, gemini-1.5-pro  
+        model = genai_local.GenerativeModel('gemini-1.5-flash')  # type: ignore
+        print("✅ Gemini AI erfolgreich initialisiert mit gemini-1.5-flash")
         return model
     except ImportError as e:
         print(f"❌ Gemini AI Bibliothek nicht verfügbar: {e}")

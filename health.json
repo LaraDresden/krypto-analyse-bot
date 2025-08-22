@@ -1,9 +1,9 @@
 {
-  "timestamp": "2025-08-22T01:10:25.467789",
-  "success": false,
-  "coins_analyzed": 0,
-  "portfolio_value": 0,
-  "error_message": "API-Schlüssel fehlen",
+  "timestamp": "2025-08-22T18:27:56.319327",
+  "success": true,
+  "coins_analyzed": 13,
+  "portfolio_value": 273.5688610521031,
+  "error_message": "",
   "version": "2.0.0",
   "system_info": {
     "python_version": "3.13.7",
