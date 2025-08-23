@@ -303,24 +303,86 @@
                 </div>
             </div>
 
-            <!-- Zeitframe Analyse -->
+            <!-- Erweiterte Zeitframe Analyse -->
             <div class="performance-card">
-                <h3>⏱️ Zeitframe Analyse</h3>
+                <h3>⏱️ Erweiterte Zeitframe Analyse</h3>
                 <div class="metric">
                     <span>Kurzfristig (1-7 Tage):</span>
                     <span class="metric-value" id="shortTermPerf">-</span>
+                </div>
+                <div class="metric">
+                    <span>├─ Erfolgsrate:</span>
+                    <span class="metric-value" id="shortTermSuccess">-</span>
+                </div>
+                <div class="metric">
+                    <span>├─ Volatilität:</span>
+                    <span class="metric-value" id="shortTermVol">-</span>
                 </div>
                 <div class="metric">
                     <span>Mittelfristig (8-30 Tage):</span>
                     <span class="metric-value" id="mediumTermPerf">-</span>
                 </div>
                 <div class="metric">
+                    <span>├─ Erfolgsrate:</span>
+                    <span class="metric-value" id="mediumTermSuccess">-</span>
+                </div>
+                <div class="metric">
+                    <span>├─ Volatilität:</span>
+                    <span class="metric-value" id="mediumTermVol">-</span>
+                </div>
+                <div class="metric">
                     <span>Langfristig (31+ Tage):</span>
                     <span class="metric-value" id="longTermPerf">-</span>
                 </div>
                 <div class="metric">
+                    <span>├─ Erfolgsrate:</span>
+                    <span class="metric-value" id="longTermSuccess">-</span>
+                </div>
+                <div class="metric">
+                    <span>├─ Volatilität:</span>
+                    <span class="metric-value" id="longTermVol">-</span>
+                </div>
+            </div>
+
+            <!-- Erweiterte Statistiken -->
+            <div class="performance-card">
+                <h3>📊 Erweiterte Statistiken</h3>
+                <div class="metric">
+                    <span>Median ROI:</span>
+                    <span class="metric-value" id="medianROI">-</span>
+                </div>
+                <div class="metric">
+                    <span>Sharpe Ratio:</span>
+                    <span class="metric-value" id="sharpeRatio">-</span>
+                </div>
+                <div class="metric">
+                    <span>Max Drawdown:</span>
+                    <span class="metric-value negative" id="maxDrawdown">-</span>
+                </div>
+                <div class="metric">
+                    <span>Gesamtvolatilität:</span>
+                    <span class="metric-value" id="totalVolatility">-</span>
+                </div>
+            </div>
+
+            <!-- Trend-Analyse -->
+            <div class="performance-card">
+                <h3>📈 Trend-Analyse</h3>
+                <div class="metric">
+                    <span>ROI-Trend:</span>
+                    <span class="metric-value" id="roiTrend">-</span>
+                </div>
+                <div class="metric">
+                    <span>Performance:</span>
+                    <span class="metric-value" id="trendDirection">-</span>
+                </div>
+                <div class="metric">
                     <span>Beste Woche:</span>
                     <span class="metric-value positive" id="bestWeek">-</span>
+                </div>
+                <div class="metric">
+                    <span>Schlechteste Woche:</span>
+                    <span class="metric-value negative" id="worstWeek">-</span>
                 </div>
             </div>
 
@@ -351,6 +413,13 @@
             <h3>📊 ROI Entwicklung über Zeit</h3>
             <div class="chart-wrapper">
                 <canvas id="roiChart"></canvas>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <h3>📈 Kumulative Performance & Trend</h3>
+            <div class="chart-wrapper">
+                <canvas id="trendChart"></canvas>
             </div>
         </div>
 
@@ -450,15 +519,39 @@
                 return getDemoPerformanceData();
             }
 
-            // Berechne Metriken
+            // Berechne erweiterte Metriken
             const analysis = {
                 totalSignals: signals.length,
                 successfulSignals: 0,
                 totalROI: 0,
                 bySignalType: { BUY: { count: 0, roi: 0, successful: 0 }, SELL: { count: 0, roi: 0, successful: 0 } },
                 byCoin: {},
-                byTimeframe: { short: { count: 0, roi: 0 }, medium: { count: 0, roi: 0 }, long: { count: 0, roi: 0 } },
+                byTimeframe: { 
+                    short: { count: 0, roi: 0, successful: 0, returns: [], volatility: 0 }, 
+                    medium: { count: 0, roi: 0, successful: 0, returns: [], volatility: 0 }, 
+                    long: { count: 0, roi: 0, successful: 0, returns: [], volatility: 0 } 
+                },
                 riskMetrics: { maxGain: 0, maxLoss: 0, returns: [] },
+                trendAnalysis: {
+                    cumulativeROI: [],
+                    cumulativeSuccessRate: [],
+                    timestamps: [],
+                    improving: false,
+                    roiTrend: 'neutral'
+                },
+                periodicPerformance: {
+                    weekly: new Map(),
+                    monthly: new Map(),
+                    bestPeriod: null,
+                    worstPeriod: null
+                },
+                detailedStats: {
+                    medianROI: 0,
+                    totalVolatility: 0,
+                    sharpeRatio: 0,
+                    maxDrawdown: 0,
+                    winRate: 0
+                },
                 metadata: {
                     roiSource: 'N/A',
                     coinSource: 'N/A',
@@ -575,19 +668,145 @@
                     days = Math.random() * 30; // Fallback für Demo
                 }
 
+                // Erweiterte Zeitraum-Analyse
+                const timeframeSuccess = roi > 0;
                 if (days <= 7) {
                     analysis.byTimeframe.short.count++;
                     analysis.byTimeframe.short.roi += roi;
+                    analysis.byTimeframe.short.returns.push(roi);
+                    if (timeframeSuccess) analysis.byTimeframe.short.successful++;
                 } else if (days <= 30) {
                     analysis.byTimeframe.medium.count++;
                     analysis.byTimeframe.medium.roi += roi;
+                    analysis.byTimeframe.medium.returns.push(roi);
+                    if (timeframeSuccess) analysis.byTimeframe.medium.successful++;
                 } else {
                     analysis.byTimeframe.long.count++;
                     analysis.byTimeframe.long.roi += roi;
+                    analysis.byTimeframe.long.returns.push(roi);
+                    if (timeframeSuccess) analysis.byTimeframe.long.successful++;
+                }
+
+                // Trend-Analyse: Kumulative Performance
+                analysis.trendAnalysis.cumulativeROI.push(analysis.totalROI);
+                const currentSuccessRate = analysis.successfulSignals / Math.max(1, signals.indexOf(signal) + 1);
+                analysis.trendAnalysis.cumulativeSuccessRate.push(currentSuccessRate * 100);
+                analysis.trendAnalysis.timestamps.push(d1 || new Date());
+
+                // Periodische Performance (wöchentlich/monatlich)
+                if (d1) {
+                    const weekKey = getWeekKey(d1);
+                    const monthKey = getMonthKey(d1);
+                    
+                    if (!analysis.periodicPerformance.weekly.has(weekKey)) {
+                        analysis.periodicPerformance.weekly.set(weekKey, { roi: 0, count: 0, successful: 0 });
+                    }
+                    if (!analysis.periodicPerformance.monthly.has(monthKey)) {
+                        analysis.periodicPerformance.monthly.set(monthKey, { roi: 0, count: 0, successful: 0 });
+                    }
+                    
+                    const weekData = analysis.periodicPerformance.weekly.get(weekKey);
+                    const monthData = analysis.periodicPerformance.monthly.get(monthKey);
+                    
+                    weekData.roi += roi;
+                    weekData.count++;
+                    if (timeframeSuccess) weekData.successful++;
+                    
+                    monthData.roi += roi;
+                    monthData.count++;
+                    if (timeframeSuccess) monthData.successful++;
                 }
             });
 
+            // Berechne erweiterte Statistiken
+            calculateExtendedStatistics(analysis);
+
             return analysis;
+        }
+
+        // === HILFSFUNKTIONEN FÜR ERWEITERTE ANALYSE ===
+        function getWeekKey(date) {
+            const year = date.getFullYear();
+            const week = getWeekNumber(date);
+            return `${year}-W${week.toString().padStart(2, '0')}`;
+        }
+
+        function getMonthKey(date) {
+            return `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`;
+        }
+
+        function getWeekNumber(date) {
+            const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+            const dayNum = d.getUTCDay() || 7;
+            d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+            const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+            return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+        }
+
+        function calculateExtendedStatistics(analysis) {
+            // Berechne Volatilität für Zeiträume
+            ['short', 'medium', 'long'].forEach(timeframe => {
+                const returns = analysis.byTimeframe[timeframe].returns;
+                if (returns.length > 1) {
+                    const mean = returns.reduce((a, b) => a + b, 0) / returns.length;
+                    const variance = returns.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / returns.length;
+                    analysis.byTimeframe[timeframe].volatility = Math.sqrt(variance);
+                }
+            });
+
+            // Gesamtstatistiken
+            const allReturns = analysis.riskMetrics.returns;
+            if (allReturns.length > 0) {
+                const sortedReturns = [...allReturns].sort((a, b) => a - b);
+                analysis.detailedStats.medianROI = sortedReturns[Math.floor(sortedReturns.length / 2)];
+                
+                const mean = allReturns.reduce((a, b) => a + b, 0) / allReturns.length;
+                const variance = allReturns.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / allReturns.length;
+                analysis.detailedStats.totalVolatility = Math.sqrt(variance);
+                
+                // Sharpe Ratio (vereinfacht, angenommen risikofreier Zins = 0)
+                analysis.detailedStats.sharpeRatio = analysis.detailedStats.totalVolatility > 0 ? 
+                    mean / analysis.detailedStats.totalVolatility : 0;
+                
+                analysis.detailedStats.winRate = (analysis.successfulSignals / analysis.totalSignals) * 100;
+
+                // Max Drawdown
+                let peak = allReturns[0];
+                let maxDrawdown = 0;
+                for (let i = 1; i < allReturns.length; i++) {
+                    if (allReturns[i] > peak) peak = allReturns[i];
+                    const drawdown = (peak - allReturns[i]) / peak;
+                    if (drawdown > maxDrawdown) maxDrawdown = drawdown;
+                }
+                analysis.detailedStats.maxDrawdown = maxDrawdown * 100;
+            }
+
+            // Trend-Analyse
+            const cumulativeROI = analysis.trendAnalysis.cumulativeROI;
+            if (cumulativeROI.length > 1) {
+                analysis.trendAnalysis.improving = cumulativeROI[cumulativeROI.length - 1] > cumulativeROI[0];
+                analysis.trendAnalysis.roiTrend = analysis.trendAnalysis.improving ? 'steigend' : 'fallend';
+            }
+
+            // Beste/Schlechteste Perioden
+            let bestWeekROI = -Infinity;
+            let worstWeekROI = Infinity;
+            let bestWeek = null;
+            let worstWeek = null;
+
+            for (const [week, data] of analysis.periodicPerformance.weekly.entries()) {
+                if (data.roi > bestWeekROI) {
+                    bestWeekROI = data.roi;
+                    bestWeek = { period: week, ...data };
+                }
+                if (data.roi < worstWeekROI) {
+                    worstWeekROI = data.roi;
+                    worstWeek = { period: week, ...data };
+                }
+            }
+
+            analysis.periodicPerformance.bestPeriod = bestWeek;
+            analysis.periodicPerformance.worstPeriod = worstWeek;
         }
 
         // === DEMO PERFORMANCE DATEN ===
@@ -671,20 +890,60 @@
                 document.getElementById('worstCoin').textContent = `${worstCoin[0]} (${worstCoin[1].roi.toFixed(1)}%)`;
             }
 
-            // Zeitframe Analyse
+            // Erweiterte Zeitframe Analyse
             const shortTermROI = data.byTimeframe.short.count > 0 ? 
                 (data.byTimeframe.short.roi / data.byTimeframe.short.count).toFixed(2) : 0;
+            const shortTermSuccessRate = data.byTimeframe.short.count > 0 ?
+                ((data.byTimeframe.short.successful || 0) / data.byTimeframe.short.count * 100).toFixed(1) : 0;
+            const shortTermVol = data.byTimeframe.short.volatility ? data.byTimeframe.short.volatility.toFixed(2) : 0;
+
             document.getElementById('shortTermPerf').textContent = `${shortTermROI}% (${data.byTimeframe.short.count})`;
+            document.getElementById('shortTermSuccess').textContent = `${shortTermSuccessRate}%`;
+            document.getElementById('shortTermVol').textContent = `${shortTermVol}%`;
 
             const mediumTermROI = data.byTimeframe.medium.count > 0 ? 
                 (data.byTimeframe.medium.roi / data.byTimeframe.medium.count).toFixed(2) : 0;
+            const mediumTermSuccessRate = data.byTimeframe.medium.count > 0 ?
+                ((data.byTimeframe.medium.successful || 0) / data.byTimeframe.medium.count * 100).toFixed(1) : 0;
+            const mediumTermVol = data.byTimeframe.medium.volatility ? data.byTimeframe.medium.volatility.toFixed(2) : 0;
+
             document.getElementById('mediumTermPerf').textContent = `${mediumTermROI}% (${data.byTimeframe.medium.count})`;
+            document.getElementById('mediumTermSuccess').textContent = `${mediumTermSuccessRate}%`;
+            document.getElementById('mediumTermVol').textContent = `${mediumTermVol}%`;
 
             const longTermROI = data.byTimeframe.long.count > 0 ? 
                 (data.byTimeframe.long.roi / data.byTimeframe.long.count).toFixed(2) : 0;
-            document.getElementById('longTermPerf').textContent = `${longTermROI}% (${data.byTimeframe.long.count})`;
+            const longTermSuccessRate = data.byTimeframe.long.count > 0 ?
+                ((data.byTimeframe.long.successful || 0) / data.byTimeframe.long.count * 100).toFixed(1) : 0;
+            const longTermVol = data.byTimeframe.long.volatility ? data.byTimeframe.long.volatility.toFixed(2) : 0;
 
-            document.getElementById('bestWeek').textContent = 'KW 34 (+23.7%)'; // Demo-Wert
+            document.getElementById('longTermPerf').textContent = `${longTermROI}% (${data.byTimeframe.long.count})`;
+            document.getElementById('longTermSuccess').textContent = `${longTermSuccessRate}%`;
+            document.getElementById('longTermVol').textContent = `${longTermVol}%`;
+
+            // Erweiterte Statistiken
+            if (data.detailedStats) {
+                document.getElementById('medianROI').textContent = `${data.detailedStats.medianROI?.toFixed(2) || 0}%`;
+                document.getElementById('sharpeRatio').textContent = `${data.detailedStats.sharpeRatio?.toFixed(3) || 0}`;
+                document.getElementById('maxDrawdown').textContent = `${data.detailedStats.maxDrawdown?.toFixed(2) || 0}%`;
+                document.getElementById('totalVolatility').textContent = `${data.detailedStats.totalVolatility?.toFixed(2) || 0}%`;
+            }
+
+            // Trend-Analyse
+            if (data.trendAnalysis) {
+                document.getElementById('roiTrend').textContent = data.trendAnalysis.roiTrend || 'neutral';
+                document.getElementById('trendDirection').textContent = data.trendAnalysis.improving ? '📈 Verbessernd' : '📉 Verschlechternd';
+            }
+
+            // Beste/Schlechteste Perioden
+            if (data.periodicPerformance?.bestPeriod) {
+                const best = data.periodicPerformance.bestPeriod;
+                document.getElementById('bestWeek').textContent = `${best.period} (+${best.roi.toFixed(1)}%)`;
+            }
+            if (data.periodicPerformance?.worstPeriod) {
+                const worst = data.periodicPerformance.worstPeriod;
+                document.getElementById('worstWeek').textContent = `${worst.period} (${worst.roi.toFixed(1)}%)`;
+            }
 
             // Risiko Metriken
             document.getElementById('maxGain').textContent = `+${data.riskMetrics.maxGain.toFixed(2)}%`;
@@ -719,6 +978,7 @@
         // === CHARTS ERSTELLEN ===
         function createCharts() {
             createROIChart();
+            createTrendChart();
             createCoinChart();
             createTimeframeChart();
         }
@@ -771,6 +1031,101 @@
                             ticks: {
                                 callback: function(value) {
                                     return value + '%';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function createTrendChart() {
+            const ctx = document.getElementById('trendChart').getContext('2d');
+            
+            if (chartInstances.trendChart) {
+                chartInstances.trendChart.destroy();
+            }
+
+            const data = currentPerformanceData;
+            const trendData = data.trendAnalysis || {};
+            
+            // Verwende echte Trend-Daten falls verfügbar, sonst Demo-Daten
+            const labels = trendData.timestamps && trendData.timestamps.length > 0 ? 
+                trendData.timestamps.map((ts, i) => `Signal ${i + 1}`) :
+                Array.from({length: 15}, (_, i) => `Signal ${i + 1}`);
+                
+            const cumulativeROI = trendData.cumulativeROI && trendData.cumulativeROI.length > 0 ?
+                trendData.cumulativeROI :
+                (() => {
+                    let cumulative = 0;
+                    return Array.from({length: 15}, () => {
+                        cumulative += (Math.random() - 0.3) * 8;
+                        return cumulative;
+                    });
+                })();
+                
+            const successRate = trendData.cumulativeSuccessRate && trendData.cumulativeSuccessRate.length > 0 ?
+                trendData.cumulativeSuccessRate :
+                Array.from({length: 15}, (_, i) => 45 + Math.random() * 20 + i * 0.5);
+
+            chartInstances.trendChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Kumulative ROI (%)',
+                        data: cumulativeROI,
+                        borderColor: 'rgb(34, 197, 94)',
+                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                        yAxisID: 'y',
+                        tension: 0.4
+                    }, {
+                        label: 'Erfolgsrate (%)',
+                        data: successRate,
+                        borderColor: 'rgb(59, 130, 246)',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        yAxisID: 'y1',
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
+                            title: {
+                                display: true,
+                                text: 'Kumulative ROI (%)'
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toFixed(1) + '%';
+                                }
+                            }
+                        },
+                        y1: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            title: {
+                                display: true,
+                                text: 'Erfolgsrate (%)'
+                            },
+                            grid: {
+                                drawOnChartArea: false
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toFixed(1) + '%';
                                 }
                             }
                         }
